@@ -7,6 +7,10 @@ func _ready() -> void:
 		var tutorial: CanvasLayer = load("res://scripts/tutorial.gd").new()
 		add_child(tutorial)
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and not event.is_echo():
+		SettingsMenu.open()
+
 func _build_background() -> void:
 	var bg := ColorRect.new()
 	bg.color = Color(0.02, 0.02, 0.09)
@@ -201,16 +205,12 @@ func _build_ui() -> void:
 	_make_btn(btn_hbox, "🚀 MISE",   Color(0.85, 0.35, 0.15),
 		func() -> void: get_tree().change_scene_to_file("res://scenes/planet_map.tscn"))
 
-	# Tester mode toggle
+	# Tester menu button
 	var tester_btn := Button.new()
 	tester_btn.custom_minimum_size = Vector2(140, 60)
 	tester_btn.add_theme_font_size_override("font_size", 15)
-	tester_btn.pressed.connect(func() -> void:
-		GameData.toggle_tester_mode()
-		_update_tester_btn(tester_btn)
-		get_tree().reload_current_scene()
-	)
 	_update_tester_btn(tester_btn)
+	tester_btn.pressed.connect(func() -> void: _show_tester_menu(ui, tester_btn))
 	btn_hbox.add_child(tester_btn)
 
 func _make_btn(parent: HBoxContainer, txt: String, clr: Color, cb: Callable) -> void:
@@ -229,6 +229,122 @@ func _update_tester_btn(btn: Button) -> void:
 	else:
 		btn.text = "🧪 TESTER: VYP"
 		btn.modulate = Color(0.45, 0.45, 0.50)
+
+func _show_tester_menu(ui: CanvasLayer, tester_btn: Button) -> void:
+	# Tmavý overlay — klik mimo zavře menu
+	var overlay := ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0.55)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	ui.add_child(overlay)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.custom_minimum_size = Vector2(320, 0)
+	ui.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 8)
+	vbox.add_theme_constant_override("margin_left",  20)
+	vbox.add_theme_constant_override("margin_right", 20)
+	vbox.add_theme_constant_override("margin_top",   16)
+	vbox.add_theme_constant_override("margin_bottom",16)
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "🧪 TESTER"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(0.20, 0.90, 0.40))
+	vbox.add_child(title)
+
+	vbox.add_child(_menu_sep())
+
+	# ── Reset na první spuštění ───────────────────────────────────
+	var reset_btn := Button.new()
+	reset_btn.text = "🔄  Reset na první spuštění"
+	reset_btn.add_theme_font_size_override("font_size", 15)
+	reset_btn.pressed.connect(func() -> void:
+		var dlg := ConfirmationDialog.new()
+		dlg.title = "Reset hry?"
+		dlg.dialog_text = "Vymaže save a spustí tutoriál od začátku."
+		dlg.ok_button_text = "Potvrdit"
+		dlg.cancel_button_text = "Zrušit"
+		ui.add_child(dlg)
+		dlg.popup_centered()
+		dlg.confirmed.connect(func() -> void:
+			GameData.reset_to_first_launch()
+			get_tree().change_scene_to_file("res://scenes/hub.tscn")
+		)
+		dlg.visibility_changed.connect(func() -> void:
+			if not dlg.visible: dlg.queue_free()
+		)
+	)
+	vbox.add_child(reset_btn)
+
+	vbox.add_child(_menu_sep())
+
+	# ── Odemknout všechny moduly ──────────────────────────────────
+	var unlock_btn := Button.new()
+	unlock_btn.text = "🔓  Odemknout všechny moduly"
+	unlock_btn.add_theme_font_size_override("font_size", 15)
+	if GameData.tester_mode:
+		unlock_btn.modulate = Color(0.20, 0.90, 0.40)
+	else:
+		unlock_btn.modulate = Color(0.65, 0.65, 0.70)
+	unlock_btn.pressed.connect(func() -> void:
+		GameData.toggle_tester_mode()
+		GameData.research_all_modules()
+		_update_tester_btn(tester_btn)
+		overlay.queue_free()
+		panel.queue_free()
+		get_tree().reload_current_scene()
+	)
+	vbox.add_child(unlock_btn)
+
+	# ── Koupit 10× od každého modulu (jen v tester módu) ─────────
+	if GameData.tester_mode:
+		vbox.add_child(_menu_sep())
+		var buy_btn := Button.new()
+		buy_btn.text = "🛒  Koupit 10× od každého modulu"
+		buy_btn.add_theme_font_size_override("font_size", 15)
+		buy_btn.modulate = Color(0.95, 0.75, 0.10)
+		buy_btn.pressed.connect(func() -> void:
+			GameData.buy_all_modules_ten()
+			overlay.queue_free()
+			panel.queue_free()
+			get_tree().reload_current_scene()
+		)
+		vbox.add_child(buy_btn)
+
+	vbox.add_child(_menu_sep())
+
+	# ── Zavřít ────────────────────────────────────────────────────
+	var close_btn := Button.new()
+	close_btn.text = "Zavřít"
+	close_btn.add_theme_font_size_override("font_size", 14)
+	close_btn.modulate = Color(0.55, 0.55, 0.60)
+	close_btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		panel.queue_free()
+	)
+	vbox.add_child(close_btn)
+
+	overlay.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed:
+			overlay.queue_free()
+			panel.queue_free()
+	)
+
+	# Vystředit panel po přidání dětí
+	await get_tree().process_frame
+	var vp := get_viewport_rect().size
+	panel.position = (vp - panel.size) * 0.5
+
+func _menu_sep() -> Control:
+	var s := Control.new()
+	s.custom_minimum_size = Vector2(0, 4)
+	return s
 
 func _sep() -> Control:
 	var s := Control.new()

@@ -532,3 +532,30 @@ func load_game() -> void:
 func delete_save() -> void:
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+
+# ── Tester helpers ───────────────────────────────────────────────
+func reset_to_first_launch() -> void:
+	delete_save()
+	metal_scrap      = 200
+	void_crystals    = 10
+	total_runs       = 0
+	planet_runs      = {"glacius": 0, "infernus": 0, "toxar": 0, "shadowveil": 0, "void_station": 0}
+	missions_done    = {"glacius": 0, "infernus": 0, "toxar": 0, "shadowveil": 0, "void_station": 0}
+	current_ship     = "scout"
+	current_planet   = "glacius"
+	current_mission  = 0
+	owned_modules    = {"basic_laser": 1, "basic_engine": 1, "small_cargo": 1, "basic_collector": 1}
+	installed_modules = ["basic_laser", "basic_engine", "small_cargo", "basic_collector", "", "", "", "", ""]
+	researched_modules = ["basic_laser", "basic_engine", "small_cargo", "basic_collector"]
+	meta_bonuses     = {"metal_pickup_mult": 1.0, "start_metal_bonus": 0}
+	tutorial_done    = false
+	tester_mode      = false
+
+func research_all_modules() -> void:
+	for module_id: String in MODULE_DATA.keys():
+		if module_id not in researched_modules:
+			researched_modules.append(module_id)
+
+func buy_all_modules_ten() -> void:
+	for module_id: String in MODULE_DATA.keys():
+		owned_modules[module_id] = owned_modules.get(module_id, 0) + 10
