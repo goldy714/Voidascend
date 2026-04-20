@@ -259,10 +259,11 @@ func _open_resolution_menu(layer: CanvasLayer) -> void:
 	vbox.add_child(HSeparator.new())
 
 	var resolutions: Array = [
-		{"label": "1280 × 720   (HD)",       "size": Vector2i(1280, 720)},
-		{"label": "1600 × 900   (HD+)",       "size": Vector2i(1600, 900)},
-		{"label": "1920 × 1080  (Full HD)",   "size": Vector2i(1920, 1080)},
+		{"label": "1280 × 720   (HD)",        "size": Vector2i(1280, 720)},
+		{"label": "1600 × 900   (HD+)",        "size": Vector2i(1600, 900)},
+		{"label": "1920 × 1080  (Full HD)",    "size": Vector2i(1920, 1080)},
 		{"label": "2560 × 1440  (2K / QHD)",  "size": Vector2i(2560, 1440)},
+		{"label": "3840 × 2160  (4K / UHD)",  "size": Vector2i(3840, 2160)},
 	]
 
 	var current_win_size := DisplayServer.window_get_size()

@@ -96,6 +96,7 @@ var MODULE_DATA: Dictionary = {
 		"desc": "2× dosah sběru. Přitáhne vzdálený materiál.",
 		"research_cost": 5, "buy_cost": 250,
 		"effect": {"pickup_range": 200.0},
+		"is_test": true,
 	},
 	# ── Cargo ───────────────────────────────────────────────────
 	"small_cargo": {
@@ -272,11 +273,20 @@ var tutorial_done: bool = false
 # ── Tester mode ──────────────────────────────────────────────────
 var tester_mode: bool = false
 
+func is_test_module(module_id: String) -> bool:
+	return MODULE_DATA.get(module_id, {}).get("is_test", false)
+
 func toggle_tester_mode() -> void:
 	tester_mode = not tester_mode
 	if tester_mode:
 		metal_scrap   = 99999
 		void_crystals = 99999
+	else:
+		# Turning tester mode OFF — uninstall any test-only modules from the ship.
+		# owned_modules counts are preserved; the modules are just hidden from UI.
+		for i: int in installed_modules.size():
+			if is_test_module(installed_modules[i]):
+				installed_modules[i] = ""
 
 # ═══════════════════════════════════════════════════════════════
 # GRID HELPERS
@@ -374,6 +384,7 @@ func get_player_stats() -> Dictionary:
 		"reflect_shield": false,
 		"weapons":        [],
 		"specials":       [],
+		"collectors":     [],
 	}
 
 	for i: int in installed_modules.size():
@@ -399,7 +410,19 @@ func get_player_stats() -> Dictionary:
 				if eff.get("reflect", false):
 					stats["reflect_shield"] = true
 			"collector":
-				stats["pickup_range"] = max(stats["pickup_range"], eff.get("pickup_range", 0.0))
+				var c_reach: float = eff.get("pickup_range", 0.0)
+				stats["pickup_range"] = max(stats["pickup_range"], c_reach)
+				var arm_type: String = "telescope"
+				var attract_r: float = 0.0
+				if module_id == "magnet_collector":
+					arm_type = "ik"
+					attract_r = 120.0
+				stats["collectors"].append({
+					"slot":           i,
+					"type":           arm_type,
+					"reach":          c_reach,
+					"attract_radius": attract_r,
+				})
 			"cargo":
 				stats["has_cargo"] = true
 				stats["metal_mult"] *= eff.get("metal_mult", 1.0)

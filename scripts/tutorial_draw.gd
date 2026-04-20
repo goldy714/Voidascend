@@ -4,7 +4,6 @@ extends Control
 var arm_target: Vector2 = Vector2(700, 750)
 var expression: int = 0   # 0 = smile, 1 = O-mouth, 2 = big grin
 
-const FP    := Vector2(155.0, 928.0)   # feet anchor
 const SUIT  := Color(0.22, 0.42, 0.82)
 const SKIN  := Color(0.95, 0.82, 0.68)
 const INK   := Color(0.08, 0.10, 0.18)
@@ -13,12 +12,16 @@ const SUIT2 := Color(0.32, 0.58, 1.00)
 # Bubble tail colour — must match the PanelContainer bg in tutorial.gd
 const TAIL_COL := Color(0.11, 0.13, 0.21, 0.97)
 
+func _get_fp() -> Vector2:
+	var vp: Vector2 = get_viewport_rect().size
+	return Vector2(vp.x * 0.081, vp.y * 0.859)
+
 func _draw() -> void:
 	_draw_tail()
 	_draw_char()
 
 func _draw_char() -> void:
-	var fp: Vector2 = FP
+	var fp: Vector2 = _get_fp()
 
 	# ── Legs ─────────────────────────────────────────────────────
 	var lleg: Vector2 = fp + Vector2(-18, -46)
@@ -91,9 +94,11 @@ func _draw_char() -> void:
 
 func _draw_tail() -> void:
 	# Triangle from bubble left edge toward character's head
-	var head_pos: Vector2 = FP + Vector2(0, -174)  # approx head center
-	var bx: float = 308.0  # left edge of bubble panel
-	var mid_y: float = 760.0
+	var vp: Vector2 = get_viewport_rect().size
+	var fp: Vector2 = _get_fp()
+	var head_pos: Vector2 = fp + Vector2(0, -174)  # approx head center
+	var bx: float = vp.x * 0.16 + 2.0  # left edge of bubble panel (matches tutorial.gd)
+	var mid_y: float = head_pos.y
 	var pts := PackedVector2Array([
 		Vector2(bx, mid_y - 28.0),
 		Vector2(bx, mid_y + 28.0),

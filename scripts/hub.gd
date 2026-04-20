@@ -260,6 +260,26 @@ func _show_tester_menu(ui: CanvasLayer, tester_btn: Button) -> void:
 
 	vbox.add_child(_menu_sep())
 
+	# ── Zapnout / vypnout tester režim ────────────────────────────
+	var toggle_btn := Button.new()
+	if GameData.tester_mode:
+		toggle_btn.text = "🧪  Tester režim: ZAP  (klikni pro VYP)"
+		toggle_btn.modulate = Color(0.20, 0.90, 0.40)
+	else:
+		toggle_btn.text = "🧪  Tester režim: VYP  (klikni pro ZAP)"
+		toggle_btn.modulate = Color(0.65, 0.65, 0.70)
+	toggle_btn.add_theme_font_size_override("font_size", 15)
+	toggle_btn.pressed.connect(func() -> void:
+		GameData.toggle_tester_mode()
+		_update_tester_btn(tester_btn)
+		overlay.queue_free()
+		panel.queue_free()
+		get_tree().reload_current_scene()
+	)
+	vbox.add_child(toggle_btn)
+
+	vbox.add_child(_menu_sep())
+
 	# ── Reset na první spuštění ───────────────────────────────────
 	var reset_btn := Button.new()
 	reset_btn.text = "🔄  Reset na první spuštění"
@@ -288,14 +308,9 @@ func _show_tester_menu(ui: CanvasLayer, tester_btn: Button) -> void:
 	var unlock_btn := Button.new()
 	unlock_btn.text = "🔓  Odemknout všechny moduly"
 	unlock_btn.add_theme_font_size_override("font_size", 15)
-	if GameData.tester_mode:
-		unlock_btn.modulate = Color(0.20, 0.90, 0.40)
-	else:
-		unlock_btn.modulate = Color(0.65, 0.65, 0.70)
+	unlock_btn.modulate = Color(0.25, 0.80, 1.00)
 	unlock_btn.pressed.connect(func() -> void:
-		GameData.toggle_tester_mode()
 		GameData.research_all_modules()
-		_update_tester_btn(tester_btn)
 		overlay.queue_free()
 		panel.queue_free()
 		get_tree().reload_current_scene()

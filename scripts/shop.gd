@@ -3,7 +3,8 @@ extends Node2D
 const CATEGORIES := ["all", "weapon", "shield", "engine", "collector", "cargo", "special"]
 const CAT_NAMES  := {
 	"all": "Vše", "weapon": "Zbraně", "shield": "Štíty",
-	"engine": "Motory", "collector": "Sběrači", "cargo": "Náklad", "special": "Aktivní"
+	"engine": "Motory", "collector": "Sběrači", "cargo": "Náklad", "special": "Aktivní",
+	"test": "🧪 Testovací"
 }
 
 var _active_cat: String = "all"
@@ -16,6 +17,10 @@ func _ready() -> void:
 	_build_background()
 	_build_ui()
 	_refresh_list()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and not event.is_echo():
+		SettingsMenu.open()
 
 func _build_background() -> void:
 	var bg := ColorRect.new()
@@ -73,12 +78,17 @@ func _build_ui() -> void:
 	cat_hbox.add_theme_constant_override("separation", 4)
 	cat_bar.add_child(cat_hbox)
 
-	for cat in CATEGORIES:
+	var active_cats: Array = CATEGORIES.duplicate()
+	if GameData.tester_mode:
+		active_cats.append("test")
+	for cat in active_cats:
 		var btn := Button.new()
 		btn.text = CAT_NAMES[cat]
 		btn.custom_minimum_size = Vector2(0, 32)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.add_theme_font_size_override("font_size", 13)
+		if cat == "test":
+			btn.add_theme_color_override("font_color", Color(0.95, 0.75, 0.25))
 		var c: String = cat
 		btn.pressed.connect(func() -> void: _set_category(c))
 		cat_hbox.add_child(btn)
@@ -126,8 +136,16 @@ func _refresh_list() -> void:
 	for mid in module_ids:
 		var mdata: Dictionary = GameData.MODULE_DATA[mid]
 		var cat: String = mdata.get("category", "")
-		if _active_cat != "all" and cat != _active_cat:
-			continue
+		var is_test: bool = mdata.get("is_test", false)
+		if is_test:
+			# Test modules appear ONLY in the "test" tab, and only in tester mode.
+			if _active_cat != "test" or not GameData.tester_mode:
+				continue
+		else:
+			if _active_cat == "test":
+				continue
+			if _active_cat != "all" and cat != _active_cat:
+				continue
 		_list_container.add_child(_make_module_row(mid, mdata))
 		_list_container.add_child(HSeparator.new())
 

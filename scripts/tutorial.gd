@@ -1,5 +1,6 @@
 extends CanvasLayer
 
+# arm_target is normalized (0..1) relative to viewport — converted in _show_step.
 const STEPS: Array[Dictionary] = [
 	{
 		"title":      "Vítej, pilote! 👋",
@@ -8,7 +9,7 @@ const STEPS: Array[Dictionary] = [
 		"cat_color":  Color(0.30, 0.55, 0.90),
 		"cat_emoji":  "🛸",
 		"cat_name":   "Modulový systém",
-		"arm_target": Vector2(680, 720),
+		"arm_target": Vector2(0.48, 0.30),
 		"expression": 2,
 	},
 	{
@@ -18,7 +19,7 @@ const STEPS: Array[Dictionary] = [
 		"cat_color":  Color(0.85, 0.20, 0.20),
 		"cat_emoji":  "⚔️",
 		"cat_name":   "Zbraně",
-		"arm_target": Vector2(455, 745),
+		"arm_target": Vector2(0.30, 0.50),
 		"expression": 0,
 	},
 	{
@@ -28,7 +29,7 @@ const STEPS: Array[Dictionary] = [
 		"cat_color":  Color(0.95, 0.50, 0.10),
 		"cat_emoji":  "🚀",
 		"cat_name":   "Motory",
-		"arm_target": Vector2(455, 745),
+		"arm_target": Vector2(0.30, 0.50),
 		"expression": 1,
 	},
 	{
@@ -38,7 +39,7 @@ const STEPS: Array[Dictionary] = [
 		"cat_color":  Color(0.20, 0.50, 0.95),
 		"cat_emoji":  "🛡️",
 		"cat_name":   "Štíty",
-		"arm_target": Vector2(455, 745),
+		"arm_target": Vector2(0.30, 0.50),
 		"expression": 0,
 	},
 	{
@@ -48,7 +49,7 @@ const STEPS: Array[Dictionary] = [
 		"cat_color":  Color(0.80, 0.70, 0.10),
 		"cat_emoji":  "🦾",
 		"cat_name":   "Sběrači + Náklad",
-		"arm_target": Vector2(455, 745),
+		"arm_target": Vector2(0.30, 0.50),
 		"expression": 1,
 	},
 	{
@@ -58,7 +59,7 @@ const STEPS: Array[Dictionary] = [
 		"cat_color":  Color(0.70, 0.20, 0.90),
 		"cat_emoji":  "⚡",
 		"cat_name":   "Speciální",
-		"arm_target": Vector2(455, 745),
+		"arm_target": Vector2(0.30, 0.50),
 		"expression": 0,
 	},
 	{
@@ -68,7 +69,7 @@ const STEPS: Array[Dictionary] = [
 		"cat_color":  Color(0.28, 0.88, 0.42),
 		"cat_emoji":  "✓",
 		"cat_name":   "Připraven!",
-		"arm_target": Vector2(960, 650),
+		"arm_target": Vector2(0.60, 0.20),
 		"expression": 2,
 	},
 ]
@@ -106,14 +107,15 @@ func _ready() -> void:
 # ── Speech bubble ─────────────────────────────────────────────
 
 func _build_bubble() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var bubble := PanelContainer.new()
 	bubble.anchor_left   = 0.0
 	bubble.anchor_right  = 1.0
 	bubble.anchor_top    = 0.0
 	bubble.anchor_bottom = 1.0
-	bubble.offset_left   = 310.0
+	bubble.offset_left   = vp.x * 0.16
 	bubble.offset_right  = -20.0
-	bubble.offset_top    = 530.0
+	bubble.offset_top    = vp.y * 0.49
 	bubble.offset_bottom = -55.0
 
 	var sty := StyleBoxFlat.new()
@@ -217,7 +219,9 @@ func _show_step(n: int) -> void:
 	var col: Color = s["cat_color"]
 
 	# Update character
-	_char_draw.arm_target = s["arm_target"]
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var norm: Vector2 = s["arm_target"]
+	_char_draw.arm_target = Vector2(norm.x * vp.x, norm.y * vp.y)
 	_char_draw.expression = s["expression"]
 	_char_draw.queue_redraw()
 

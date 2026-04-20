@@ -6,30 +6,21 @@ Tento soubor zachycuje přesný stav rozepsané práce. Při každém startu sez
 
 ## Aktuální stav
 
-**Datum poslední aktualizace:** 2026-04-19
+**Datum poslední aktualizace:** 2026-04-20
 **Projekt:** Voidascend
-**Aktivní úkol:** Tester menu
-**Stav:** hotovo
-
-### Co je hotovo (initial commit)
-- Celá herní smyčka: main_menu → hub → planet_map → game → hub
-- Datová vrstva: 2 lodě, 5 planet, 23 modulů v 6 kategoriích
-- Save/load systém (JSON)
-- Hangár, shop, wave spawner, HUD, tutorial
-- Meta progrese, tester mode
+**Aktivní úkol:** Dedikované tlačítko pro zap/vyp tester režimu v tester menu
+**Stav:** hotovo, čeká na test uživatelem
 
 ### Změny v tomto sezení
-- `project.godot` — viewport změněn z 1920×1080 na 1280×720
-- `scripts/module_icon.gd` — přidáno `mouse_filter = MOUSE_FILTER_IGNORE` → drag modulů funguje i kliknutím na ikonu
-- `master` větev přejmenována na `main` (GitHub default branch přepnut ručně uživatelem)
-- `scripts/game.gd` — přidáno 5. rozlišení do pause menu: 3840×2160 (4K / UHD)
-- `scripts/autoloads/settings_menu.gd` — nový autoload, vizuálně identický s pause menu z mise; stejné tlačítka, tip, rozlišení submenu
-- `project.godot` — registrován autoload SettingsMenu
-- `scripts/hangar.gd`, `shop.gd`, `planet_map.gd`, `hub.gd` — Esc otevírá SettingsMenu.open()
-- `scripts/main_menu.gd` — Esc + ⚙ tlačítko volají SettingsMenu.open(); odstraněno duplicitní _open_resolution_menu
+- `scripts/hub.gd` — přidáno dedikované toggle tlačítko "🧪 Tester režim: ZAP/VYP" na začátek tester menu (hned po titulku). Text a barva odpovídají aktuálnímu stavu. Kliknutí volá `GameData.toggle_tester_mode()` + reload scény.
+- `scripts/hub.gd` — "🔓 Odemknout všechny moduly" oddělen od toggle: dříve volal `toggle_tester_mode()` + `research_all_modules()`, teď volá jen `research_all_modules()`. Barva změněna na modrou (unlock akce, ne tester-specific).
+
+### Rozhodnutí a kontext
+- Uživatel nevěděl jak zapnout tester mód — ovládání bylo skryté v kombinovaném tlačítku "Odemknout všechny moduly" které dělalo dvě věci najednou
+- Rozdělení: toggle = jen on/off flag; unlock = jen research; buy-10x = zůstává jen v tester módu
 
 ### Co je potřeba od uživatele
-- Reload projektu v Godot editoru (Project → Reload Current Project) kvůli novému autoloadu SettingsMenu — jinak parse error v hangar/shop/planet_map/hub/main_menu
+- Otevřít hub → kliknout na tlačítko "TESTER: VYP" vpravo dole → v menu kliknout na "Tester režim: VYP (klikni pro ZAP)" → ověřit že se zapne (text se změní, zobrazí se "Koupit 10×" tlačítko, v Obchodě se objeví záložka 🧪 Testovací).
 
 ---
 

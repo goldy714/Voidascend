@@ -9,6 +9,10 @@ func _ready() -> void:
 	_build_background()
 	_build_ui()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and not event.is_echo():
+		SettingsMenu.open()
+
 func _build_background() -> void:
 	var bg := ColorRect.new()
 	bg.color = Color(0.02, 0.02, 0.09)
@@ -167,6 +171,9 @@ func _build_inventory_list() -> void:
 
 	for mid: String in GameData.MODULE_DATA.keys():
 		if mid not in GameData.owned_modules:
+			continue
+		# Hide test-only modules from the inventory when tester mode is off.
+		if GameData.is_test_module(mid) and not GameData.tester_mode:
 			continue
 
 		var total_owned: int = GameData.owned_modules.get(mid, 0)

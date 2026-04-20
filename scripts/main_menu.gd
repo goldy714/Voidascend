@@ -16,6 +16,10 @@ func _ready() -> void:
 	_init_debris()
 	_build_ui()
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel") and not event.is_echo():
+		SettingsMenu.open()
+
 
 func _init_debris() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -183,92 +187,5 @@ func _build_ui() -> void:
 	settings_btn.offset_top    =  12
 	settings_btn.offset_right  = -12
 	settings_btn.offset_bottom =  64
-	settings_btn.pressed.connect(_open_resolution_menu.bind(ui))
+	settings_btn.pressed.connect(SettingsMenu.open)
 	ui.add_child(settings_btn)
-
-
-func _open_resolution_menu(ui: CanvasLayer) -> void:
-	# ── Dim overlay ───────────────────────────────────────────────────────
-	var overlay := ColorRect.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.color = Color(0.0, 0.0, 0.0, 0.62)
-	ui.add_child(overlay)
-
-	# ── Popup panel ───────────────────────────────────────────────────────
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	panel.grow_vertical   = Control.GROW_DIRECTION_BOTH
-	panel.custom_minimum_size = Vector2(500, 0)
-	ui.add_child(panel)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	panel.add_child(vbox)
-
-	# Header row
-	var hdr := HBoxContainer.new()
-	vbox.add_child(hdr)
-
-	var hdr_lbl := Label.new()
-	hdr_lbl.text = "⚙   Rozlišení a zobrazení"
-	hdr_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hdr_lbl.add_theme_font_size_override("font_size", 20)
-	hdr_lbl.add_theme_color_override("font_color", Color(0.25, 0.75, 1.00))
-	hdr.add_child(hdr_lbl)
-
-	var close_btn := Button.new()
-	close_btn.text = "✕"
-	close_btn.custom_minimum_size = Vector2(42, 42)
-	close_btn.pressed.connect(func() -> void:
-		overlay.queue_free()
-		panel.queue_free())
-	hdr.add_child(close_btn)
-
-	vbox.add_child(HSeparator.new())
-
-	# Resolution presets
-	var resolutions: Array = [
-		{"label": "1280 × 720   (HD)",          "size": Vector2i(1280, 720)},
-		{"label": "1600 × 900   (HD+)",          "size": Vector2i(1600, 900)},
-		{"label": "1920 × 1080  (Full HD)",      "size": Vector2i(1920, 1080)},
-		{"label": "2560 × 1440  (2K / QHD)",     "size": Vector2i(2560, 1440)},
-	]
-
-	var current_win_size := DisplayServer.window_get_size()
-	var is_fullscreen: bool = DisplayServer.window_get_mode() \
-		in [DisplayServer.WINDOW_MODE_FULLSCREEN,
-			DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
-
-	for r: Dictionary in resolutions:
-		var btn := Button.new()
-		btn.text = r["label"]
-		btn.custom_minimum_size = Vector2(0, 52)
-		btn.add_theme_font_size_override("font_size", 17)
-		var is_active: bool = (not is_fullscreen) and (current_win_size == r["size"])
-		if is_active:
-			btn.modulate = Color(0.28, 0.82, 1.00)
-		var target: Vector2i = r["size"]
-		btn.pressed.connect(func() -> void:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-			DisplayServer.window_set_size(target)
-			var screen_sz := DisplayServer.screen_get_size()
-			DisplayServer.window_set_position((screen_sz - target) / 2)
-			overlay.queue_free()
-			panel.queue_free())
-		vbox.add_child(btn)
-
-	vbox.add_child(HSeparator.new())
-
-	# Fullscreen button
-	var fs_btn := Button.new()
-	fs_btn.text = "⛶   Celá obrazovka (Fullscreen)"
-	fs_btn.custom_minimum_size = Vector2(0, 52)
-	fs_btn.add_theme_font_size_override("font_size", 17)
-	if is_fullscreen:
-		fs_btn.modulate = Color(0.28, 0.82, 1.00)
-	fs_btn.pressed.connect(func() -> void:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-		overlay.queue_free()
-		panel.queue_free())
-	vbox.add_child(fs_btn)

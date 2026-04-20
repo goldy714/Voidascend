@@ -64,10 +64,35 @@ func _apply_modules() -> void:
 	var ship: Dictionary = GameData.SHIP_DATA[GameData.current_ship]
 	_ability_cooldown = ship.get("active_cooldown", 2.5)
 
+	_spawn_collector_arms(ship)
+
 	hp_changed.emit(hp, _max_hp)
 
+
+func _spawn_collector_arms(ship: Dictionary) -> void:
+	# Clear any existing arms (in case stats are recomputed)
+	for n in get_children():
+		if n is CollectorArm:
+			n.queue_free()
+	# Only spawn if we can actually collect (need cargo to store it)
+	if not _has_cargo:
+		return
+	var grid: Vector2i = ship.get("grid", Vector2i(3, 3))
+	var origin: Vector2 = ShipDraw.get_grid_origin(grid.x, grid.y)
+	for c: Dictionary in _stats.get("collectors", []):
+		var arm: CollectorArm = CollectorArm.new()
+		arm.arm_type       = c["type"]
+		arm.reach          = c["reach"]
+		arm.attract_radius = c["attract_radius"]
+		arm.player         = self
+		var slot: int = c["slot"]
+		var col: int = slot % grid.x
+		var row: int = slot / grid.x
+		arm.position = origin + Vector2(col * ShipDraw.CELL, row * ShipDraw.CELL)
+		add_child(arm)
+
 func _draw() -> void:
-	ShipDraw.draw_ship(self, GameData.current_ship, GameData.installed_modules, _aim_dir())
+	ShipDraw.draw_ship(self, GameData.current_ship, GameData.installed_modules, _aim_dir(), false)
 	# Ability cooldown arc (outside hull)
 	if _ability_timer > 0.0:
 		var frac: float = _ability_timer / _ability_cooldown
@@ -81,8 +106,6 @@ func _physics_process(delta: float) -> void:
 	_move(delta)
 	_auto_shoot(delta)
 	_handle_ability(delta)
-	if _has_cargo and _pickup_range > 0:
-		_attract_pickups()
 
 # ── Movement ─────────────────────────────────────────────────────
 func _move(delta: float) -> void:
@@ -194,13 +217,6 @@ func _do_salvo() -> void:
 	# Fire all weapons simultaneously (Destroyer active)
 	for w: Dictionary in _stats["weapons"]:
 		_fire_weapon(w)
-
-# ── Pickups ───────────────────────────────────────────────────────
-func _attract_pickups() -> void:
-	for pickup in get_tree().get_nodes_in_group("pickups"):
-		if is_instance_valid(pickup) and \
-				global_position.distance_to(pickup.global_position) < _pickup_range:
-			pickup.attract_to(self)
 
 # ── Damage & death ────────────────────────────────────────────────
 func take_damage(amount: int) -> void:

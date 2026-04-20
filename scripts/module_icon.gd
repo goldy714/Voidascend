@@ -10,6 +10,7 @@ var aim: Vector2       = Vector2.UP
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(60, 60)
+	mouse_filter = MOUSE_FILTER_IGNORE
 
 
 func _draw() -> void:

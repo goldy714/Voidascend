@@ -17,8 +17,11 @@ static func draw_module_icon(canvas: CanvasItem, module_id: String,
 
 ## Draw the full ship (hull + module slots) onto `canvas`.
 ## Call this from _draw() of any CanvasItem.
+## When `draw_collectors` is false, collector slots show just a mount socket —
+## used on the in-game player ship where animated arms overlay the slots.
 static func draw_ship(canvas: CanvasItem, ship_id: String,
-		installed_modules: Array, aim: Vector2 = Vector2.UP) -> void:
+		installed_modules: Array, aim: Vector2 = Vector2.UP,
+		draw_collectors: bool = true) -> void:
 	var ship_data: Dictionary = GameData.SHIP_DATA.get(ship_id, {})
 	var g: Vector2i = ship_data.get("grid", Vector2i(3, 2))
 	var cols: int = g.x
@@ -35,10 +38,20 @@ static func draw_ship(canvas: CanvasItem, ship_id: String,
 		if not mid.is_empty():
 			var cat: String = GameData.MODULE_DATA.get(mid, {}).get("category", "")
 			_draw_slot_bg(canvas, slot_pos, true, cat)
-			_draw_module(canvas, slot_pos, mid, aim)
+			if cat == "collector" and not draw_collectors:
+				_draw_collector_mount(canvas, slot_pos)
+			else:
+				_draw_module(canvas, slot_pos, mid, aim)
 		else:
 			_draw_slot_bg(canvas, slot_pos, false, "")
 			_draw_structural(canvas, slot_pos)
+
+
+static func _draw_collector_mount(canvas: CanvasItem, pos: Vector2) -> void:
+	# Small socket/hardpoint that anchors the collector arm.
+	canvas.draw_circle(pos, 4.2, Color(0.12, 0.10, 0.04, 0.88))
+	canvas.draw_arc(pos, 4.2, 0.0, TAU, 16, Color(0.55, 0.44, 0.12, 0.90), 1.2)
+	canvas.draw_circle(pos, 1.4, Color(0.60, 0.52, 0.20, 0.80))
 
 # ── Hull shapes ───────────────────────────────────────────────────────────────
 
