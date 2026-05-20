@@ -3,6 +3,8 @@ extends Control
 ## Draws the ship via ShipDraw and overlays transparent interactive slot buttons
 ## exactly on top of each drawn slot.
 
+const ShipDraw = preload("res://scripts/ship_draw.gd")
+
 const SCALE: float = 8.5   # ship draw scale inside this control
 
 var refresh_cb: Callable        # called after any slot change (hangar rebuilds right panel)
