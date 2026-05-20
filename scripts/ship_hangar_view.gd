@@ -5,7 +5,13 @@ extends Control
 
 const ShipDraw = preload("res://scripts/ship_draw.gd")
 
-const SCALE: float = 8.5   # ship draw scale inside this control
+const MAX_SCALE: float = 5.8
+const MIN_SCALE: float = 2.8
+const FIT_MARGIN: Vector2 = Vector2(84.0, 120.0)
+const HULL_BOUNDS := {
+	"scout": Rect2(Vector2(-58.0, -64.0), Vector2(116.0, 124.0)),
+	"destroyer": Rect2(Vector2(-58.0, -66.0), Vector2(116.0, 130.0)),
+}
 
 var refresh_cb: Callable        # called after any slot change (hangar rebuilds right panel)
 var _slot_btns: Array[Button]   = []
@@ -15,7 +21,9 @@ var _last_size:  Vector2        = Vector2.ZERO
 
 func _draw() -> void:
 	var center: Vector2 = size / 2.0
-	draw_set_transform(center, 0.0, Vector2(SCALE, SCALE))
+	var bounds := _ship_bounds()
+	var scale := _fit_scale(bounds)
+	draw_set_transform(center - bounds.get_center() * scale, 0.0, Vector2(scale, scale))
 	ShipDraw.draw_ship(self, GameData.current_ship, GameData.installed_modules)
 	draw_set_transform(Vector2.ZERO)
 
@@ -45,14 +53,17 @@ func _rebuild_slots() -> void:
 	var rows: int    = g.y
 	var origin: Vector2 = ShipDraw.get_grid_origin(cols, rows)
 	var center: Vector2 = size / 2.0
+	var bounds := _ship_bounds()
+	var bounds_center := bounds.get_center()
+	var scale := _fit_scale(bounds)
 	# Slot button size matches the drawn slot square at this scale
-	var btn_px: float = ShipDraw.SLOT_HALF * 2.0 * SCALE
+	var btn_px: float = ShipDraw.SLOT_HALF * 2.0 * scale
 
 	for i: int in (cols * rows):
 		var col: int = i % cols
 		var row: int = i / cols
 		var local_pos: Vector2  = origin + Vector2(col * ShipDraw.CELL, row * ShipDraw.CELL)
-		var screen_pos: Vector2 = center + local_pos * SCALE
+		var screen_pos: Vector2 = center + (local_pos - bounds_center) * scale
 
 		var mid: String = ""
 		if i < GameData.installed_modules.size():
@@ -107,3 +118,29 @@ func _on_slot_refreshed() -> void:
 	_rebuild_slots()
 	if refresh_cb.is_valid():
 		refresh_cb.call()
+
+func _ship_bounds() -> Rect2:
+	var ship_data: Dictionary = GameData.SHIP_DATA.get(GameData.current_ship, {})
+	var g: Vector2i = ship_data.get("grid", Vector2i(3, 3))
+	var bounds: Rect2 = HULL_BOUNDS.get(GameData.current_ship,
+		Rect2(Vector2(-60.0, -66.0), Vector2(120.0, 132.0)))
+
+	var origin: Vector2 = ShipDraw.get_grid_origin(g.x, g.y)
+	var slot_pad := Vector2(ShipDraw.SLOT_HALF + 5.0, ShipDraw.SLOT_HALF + 5.0)
+	for i: int in (g.x * g.y):
+		var col: int = i % g.x
+		var row: int = i / g.x
+		var slot_pos: Vector2 = origin + Vector2(col * ShipDraw.CELL, row * ShipDraw.CELL)
+		bounds = bounds.expand(slot_pos - slot_pad)
+		bounds = bounds.expand(slot_pos + slot_pad)
+	return bounds
+
+func _fit_scale(bounds: Rect2) -> float:
+	if size.x <= 1.0 or size.y <= 1.0:
+		return MIN_SCALE
+	var available := Vector2(
+		max(1.0, size.x - FIT_MARGIN.x),
+		max(1.0, size.y - FIT_MARGIN.y)
+	)
+	var scale: float = min(available.x / bounds.size.x, available.y / bounds.size.y)
+	return clampf(scale, MIN_SCALE, MAX_SCALE)

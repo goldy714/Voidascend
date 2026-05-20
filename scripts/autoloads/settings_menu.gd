@@ -83,6 +83,11 @@ func _build_menu() -> void:
 		func() -> void: _open_resolution_submenu())
 
 	vbox.add_child(_gap(2))
+
+	_menu_btn(vbox, "DEV   Architektura a změny", Color(0.25, 0.75, 1.00),
+		func() -> void: DevWindow.open())
+
+	vbox.add_child(_gap(2))
 	vbox.add_child(HSeparator.new())
 	vbox.add_child(_gap(2))
 
