@@ -317,6 +317,18 @@ func _show_tester_menu(ui: CanvasLayer, tester_btn: Button) -> void:
 	)
 	vbox.add_child(unlock_btn)
 
+	var unlock_missions_btn := Button.new()
+	unlock_missions_btn.text = "🔓  Odemknout všechny mise"
+	unlock_missions_btn.add_theme_font_size_override("font_size", 15)
+	unlock_missions_btn.modulate = Color(0.45, 0.70, 1.00)
+	unlock_missions_btn.pressed.connect(func() -> void:
+		GameData.unlock_all_missions()
+		overlay.queue_free()
+		panel.queue_free()
+		get_tree().reload_current_scene()
+	)
+	vbox.add_child(unlock_missions_btn)
+
 	# ── Koupit 10× od každého modulu (jen v tester módu) ─────────
 	if GameData.tester_mode:
 		vbox.add_child(_menu_sep())

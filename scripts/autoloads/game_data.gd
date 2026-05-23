@@ -579,6 +579,11 @@ func research_all_modules() -> void:
 		if module_id not in researched_modules:
 			researched_modules.append(module_id)
 
+func unlock_all_missions() -> void:
+	for planet_id: String in PLANET_ORDER:
+		missions_done[planet_id] = 4
+	save_game()
+
 func buy_all_modules_ten() -> void:
 	for module_id: String in MODULE_DATA.keys():
 		owned_modules[module_id] = owned_modules.get(module_id, 0) + 10
