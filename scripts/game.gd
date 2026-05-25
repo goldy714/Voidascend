@@ -1,6 +1,7 @@
 extends Node2D
 
 const PLAYER_SCENE = preload("res://scenes/player.tscn")
+const ScrollingBackground = preload("res://scripts/scrolling_background.gd")
 
 @onready var _wave_spawner: Node  = $WaveSpawner
 @onready var _hud: CanvasLayer    = $HUD
@@ -58,23 +59,7 @@ func _process(_delta: float) -> void:
 
 # ── Background ────────────────────────────────────────────────────
 func _spawn_background() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.02, 0.02, 0.09)
-	bg.size = get_viewport_rect().size
-	bg.z_index = -10
-	add_child(bg)
-
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 12345
-	var sz := get_viewport_rect().size
-	for _i in 110:
-		var star := ColorRect.new()
-		var s := rng.randf_range(1.0, 2.8)
-		star.size = Vector2(s, s)
-		star.color = Color(1, 1, 1, rng.randf_range(0.15, 0.80))
-		star.position = Vector2(rng.randf() * sz.x, rng.randf() * sz.y)
-		star.z_index = -9
-		add_child(star)
+	add_child(ScrollingBackground.new())
 
 # ── Player ────────────────────────────────────────────────────────
 func _spawn_player() -> void:
