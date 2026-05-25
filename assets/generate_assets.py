@@ -13,6 +13,13 @@ def save(img: Image.Image, *path_parts):
     img.save(p)
     print("  saved", p)
 
+def save_if_missing(img: Image.Image, *path_parts):
+    p = os.path.join(BASE, *path_parts)
+    if os.path.exists(p):
+        print("  kept", p)
+        return
+    save(img, *path_parts)
+
 def new(w, h):
     return Image.new("RGBA", (w, h), (0, 0, 0, 0))
 
@@ -355,9 +362,10 @@ print("Generating VoidAscent assets...")
 save(upscale(make_scout(), 2),    "ships", "ship_scout.png")
 save(upscale(make_destroyer(), 2),"ships", "ship_destroyer.png")
 
-# Enemies
-save(upscale(make_enemy_basic(), 2), "enemies", "enemy_basic.png")
-save(upscale(make_enemy_rare(),  2), "enemies", "enemy_rare.png")
+# Enemies are PixelLab-authored PNGs. Keep them when regenerating assets;
+# procedural sprites are only a fallback for missing files.
+save_if_missing(upscale(make_enemy_basic(), 2), "enemies", "enemy_basic.png")
+save_if_missing(upscale(make_enemy_rare(),  2), "enemies", "enemy_rare.png")
 
 # Bullets (keep small, Godot scales via sprite)
 save(make_bullet_player(), "bullets", "bullet_player.png")
