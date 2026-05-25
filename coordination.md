@@ -6,21 +6,7 @@ Tento soubor zachycuje přesný stav rozepsané práce. Obsah se přepisuje — 
 
 ## Aktuální stav
 
-**Datum poslední aktualizace:** 2026-04-20
-**Projekt:** Voidascend
-**Aktivní úkol:** Dedikované tlačítko pro zap/vyp tester režimu v tester menu
-**Stav:** hotovo, čeká na test uživatelem
-
-### Změny v tomto sezení
-- `scripts/hub.gd` — přidáno dedikované toggle tlačítko "🧪 Tester režim: ZAP/VYP" na začátek tester menu (hned po titulku). Text a barva odpovídají aktuálnímu stavu. Kliknutí volá `GameData.toggle_tester_mode()` + reload scény.
-- `scripts/hub.gd` — "🔓 Odemknout všechny moduly" oddělen od toggle: dříve volal `toggle_tester_mode()` + `research_all_modules()`, teď volá jen `research_all_modules()`. Barva změněna na modrou (unlock akce, ne tester-specific).
-
-### Rozhodnutí a kontext
-- Uživatel nevěděl jak zapnout tester mód — ovládání bylo skryté v kombinovaném tlačítku "Odemknout všechny moduly" které dělalo dvě věci najednou
-- Rozdělení: toggle = jen on/off flag; unlock = jen research; buy-10x = zůstává jen v tester módu
-
-### Co je potřeba od uživatele
-- Otevřít hub → kliknout na tlačítko "TESTER: VYP" vpravo dole → v menu kliknout na "Tester režim: VYP (klikni pro ZAP)" → ověřit že se zapne (text se změní, zobrazí se "Koupit 10×" tlačítko, v Obchodě se objeví záložka 🧪 Testovací).
+Žádný aktivní úkol.
 
 ---
 

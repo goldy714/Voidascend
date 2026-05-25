@@ -9,6 +9,10 @@ const BULLET_SCENE = preload("res://scenes/bullet_player.tscn")
 const ShipDraw = preload("res://scripts/ship_draw.gd")
 const CollectorArmScript = preload("res://scripts/collector_arm.gd")
 
+const DASH_DISTANCE: float = 160.0
+const DASH_DURATION: float = 0.16
+const DASH_AFTERGLOW: float = 0.10
+
 # ── Runtime stats (set from GameData in _ready) ─────────────────
 var _stats: Dictionary = {}
 var _speed: float        = 0.0
@@ -24,6 +28,11 @@ var _weapon_timers: Array[float] = []
 # Ship ability (Space)
 var _ability_timer: float    = 0.0
 var _ability_cooldown: float = 2.5
+var _is_dashing: bool        = false
+var _dash_timer: float       = 0.0
+var _dash_start: Vector2     = Vector2.ZERO
+var _dash_end: Vector2       = Vector2.ZERO
+var _dash_dir: Vector2       = Vector2.UP
 
 # Runtime state
 var hp: int            = 100
@@ -94,6 +103,8 @@ func _spawn_collector_arms(ship: Dictionary) -> void:
 		add_child(arm)
 
 func _draw() -> void:
+	if _is_dashing:
+		_draw_dash_trail()
 	ShipDraw.draw_ship(self, GameData.current_ship, GameData.installed_modules, _aim_dir(), false)
 	# Ability cooldown arc (outside hull)
 	if _ability_timer > 0.0:
@@ -102,10 +113,27 @@ func _draw() -> void:
 			-PI / 2.0 + TAU * (1.0 - frac), 40,
 			Color(0.3, 0.8, 1.0, 0.65), 2.5)
 
+func _draw_dash_trail() -> void:
+	var progress: float = clamp(1.0 - (_dash_timer / DASH_DURATION), 0.0, 1.0)
+	var alpha: float = 0.72 * (1.0 - progress * 0.35)
+	var trail_len: float = 44.0 + 42.0 * progress
+	var tail: Vector2 = -_dash_dir * trail_len
+	var core_end: Vector2 = -_dash_dir * 6.0
+	var perp := Vector2(-_dash_dir.y, _dash_dir.x)
+	draw_line(tail, core_end, Color(0.25, 0.85, 1.0, alpha), 8.0)
+	draw_line(tail, core_end, Color(0.82, 0.96, 1.0, alpha * 0.72), 3.0)
+	draw_line(tail + perp * 18.0, core_end + perp * 5.0,
+		Color(0.30, 0.78, 1.0, alpha * 0.42), 2.0)
+	draw_line(tail - perp * 18.0, core_end - perp * 5.0,
+		Color(0.30, 0.78, 1.0, alpha * 0.42), 2.0)
+
 func _physics_process(delta: float) -> void:
 	if not is_alive:
 		return
-	_move(delta)
+	if _is_dashing:
+		_update_dash(delta)
+	else:
+		_move(delta)
 	_auto_shoot(delta)
 	_handle_ability(delta)
 
@@ -121,6 +149,17 @@ func _move(delta: float) -> void:
 	var sz := get_viewport_rect().size
 	global_position.x = clamp(global_position.x, 28.0, sz.x - 28.0)
 	global_position.y = clamp(global_position.y, 28.0, sz.y - 28.0)
+
+func _update_dash(delta: float) -> void:
+	_dash_timer = max(0.0, _dash_timer - delta)
+	var progress: float = clamp(1.0 - (_dash_timer / DASH_DURATION), 0.0, 1.0)
+	var eased: float = 1.0 - pow(1.0 - progress, 3.0)
+	global_position = _dash_start.lerp(_dash_end, eased)
+	velocity = Vector2.ZERO
+	if _dash_timer <= 0.0:
+		global_position = _dash_end
+		_finish_dash()
+	queue_redraw()
 
 # ── Weapons ───────────────────────────────────────────────────────
 func _auto_shoot(delta: float) -> void:
@@ -204,15 +243,27 @@ func _activate_ship_ability() -> void:
 		"salvo": _do_salvo()
 
 func _do_dash() -> void:
-	var dir := velocity.normalized() if velocity.length() > 10 else Vector2(0, -1)
-	invincible = true
-	modulate = Color(0.5, 0.8, 1.0, 0.55)
-	global_position += dir * 160.0
+	if _is_dashing:
+		return
+	var dir := velocity.normalized() if velocity.length() > 10.0 else Vector2(0, -1)
+	_dash_start = global_position
+	_dash_end = _dash_start + dir * DASH_DISTANCE
 	var sz := get_viewport_rect().size
-	global_position.x = clamp(global_position.x, 28.0, sz.x - 28.0)
-	global_position.y = clamp(global_position.y, 28.0, sz.y - 28.0)
+	_dash_end.x = clamp(_dash_end.x, 28.0, sz.x - 28.0)
+	_dash_end.y = clamp(_dash_end.y, 28.0, sz.y - 28.0)
+	var travel: Vector2 = _dash_end - _dash_start
+	_dash_dir = travel.normalized() if travel.length() > 1.0 else dir
+	_dash_timer = DASH_DURATION
+	_is_dashing = true
+	invincible = true
+	modulate = Color(0.5, 0.85, 1.0, 0.68)
+	queue_redraw()
+
+func _finish_dash() -> void:
+	_is_dashing = false
+	queue_redraw()
 	var tw := create_tween()
-	tw.tween_property(self, "modulate", Color.WHITE, 0.30)
+	tw.tween_property(self, "modulate", Color.WHITE, DASH_AFTERGLOW)
 	tw.tween_callback(func() -> void: invincible = false)
 
 func _do_salvo() -> void:

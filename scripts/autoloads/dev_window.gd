@@ -12,7 +12,6 @@ const DEVLOG_PATH := "res://devlog.md"
 const DEVLOG_ENTRIES_TO_SHOW := 6
 const DEVLOG_MAX_ITEMS := 20
 
-
 var _layer: CanvasLayer = null
 
 
