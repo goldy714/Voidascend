@@ -3,6 +3,10 @@ class_name ShipDraw extends RefCounted
 # Cell size for module grid and origin offset
 const CELL: float    = 20.0
 const SLOT_HALF: float = 8.5
+const MODULE_ART_SIZE: float = 16.0
+const MODULE_ART_DIR: String = "res://assets/modules"
+
+static var _module_art_cache: Dictionary = {}
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -207,10 +211,33 @@ static func _draw_structural(canvas: CanvasItem, pos: Vector2) -> void:
 	canvas.draw_line(pos + Vector2(-3.5, 0.0), pos + Vector2(3.5, 0.0), dim, 0.8)
 	canvas.draw_line(pos + Vector2(0.0, -3.5), pos + Vector2(0.0, 3.5), dim, 0.8)
 
+# ── Module art textures ───────────────────────────────────────────────────────
+
+static func _get_module_art(module_id: String) -> Texture2D:
+	if _module_art_cache.has(module_id):
+		return _module_art_cache[module_id] as Texture2D
+
+	var path: String = "%s/%s.png" % [MODULE_ART_DIR, module_id]
+	var texture: Texture2D = null
+	if ResourceLoader.exists(path, "Texture2D"):
+		texture = load(path) as Texture2D
+	_module_art_cache[module_id] = texture
+	return texture
+
+static func _draw_module_art(canvas: CanvasItem, pos: Vector2, texture: Texture2D) -> void:
+	var half: float = MODULE_ART_SIZE * 0.5
+	var rect := Rect2(pos - Vector2(half, half), Vector2(MODULE_ART_SIZE, MODULE_ART_SIZE))
+	canvas.draw_texture_rect(texture, rect, false)
+
 # ── Module dispatcher ─────────────────────────────────────────────────────────
 
 static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		module_id: String, aim: Vector2) -> void:
+	var texture: Texture2D = _get_module_art(module_id)
+	if texture != null:
+		_draw_module_art(canvas, pos, texture)
+		return
+
 	match module_id:
 		"basic_laser":      _wep_basic_laser(canvas, pos, aim)
 		"double_laser":     _wep_double_laser(canvas, pos, aim)
