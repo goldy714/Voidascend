@@ -8,14 +8,10 @@ const ARCHITECTURE: Array[String] = [
 	"Sběr surovin závisí na cargo a sběračových modulech; sebrané odměny se zapisují do výsledku mise.",
 ]
 
-const LAST_LOAD_CHANGES: Array[String] = [
-	"Projekt jde spustit přímo z Godotu na Windows.",
-	"Načítání sdílených herních skriptů je stabilnější.",
-	"Bojové objekty a střely mají spolehlivější inicializaci.",
-	"Herní assety jsou připravené pro načítání za běhu.",
-	"Sběr odměn během mise je stabilnější.",
-	"Přibyl vývojářský přehled architektury a posledních obecných změn.",
-]
+const DEVLOG_PATH := "res://devlog.md"
+const DEVLOG_ENTRIES_TO_SHOW := 6
+const DEVLOG_MAX_ITEMS := 20
+
 
 var _layer: CanvasLayer = null
 
@@ -94,7 +90,7 @@ func _build_window() -> void:
 	header.add_child(close_btn)
 
 	var hint := Label.new()
-	hint.text = "F1 přepíná toto okno. Obsah shrnuje základní architekturu hry a obecné změny od posledního spuštění."
+	hint.text = "F1 přepíná toto okno. Obsah shrnuje základní architekturu hry a nejnovější záznamy z devlogu."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", Color(0.56, 0.62, 0.74))
@@ -103,7 +99,7 @@ func _build_window() -> void:
 	vbox.add_child(HSeparator.new())
 	vbox.add_child(_section("Architektura", ARCHITECTURE))
 	vbox.add_child(HSeparator.new())
-	vbox.add_child(_section("Obecné změny od posledního spuštění", LAST_LOAD_CHANGES))
+	vbox.add_child(_section("Poslední změny z devlogu", _load_last_load_changes()))
 
 	dim.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed:
@@ -113,6 +109,69 @@ func _build_window() -> void:
 	await get_tree().process_frame
 	var vp := get_viewport().get_visible_rect().size
 	panel.position = (vp - panel.size) * 0.5
+
+
+func _load_last_load_changes() -> Array[String]:
+	var devlog := _read_text_file(DEVLOG_PATH)
+	if devlog.is_empty():
+		return []
+
+	var items: Array[String] = []
+	var entries_seen := 0
+	var in_entry := false
+	var current_title := ""
+	var entry_bullet_count := 0
+
+	for raw_line: String in devlog.split("\n"):
+		var line := raw_line.strip_edges()
+		if line.begins_with("## "):
+			entries_seen += 1
+			if entries_seen > DEVLOG_ENTRIES_TO_SHOW:
+				break
+			in_entry = true
+			current_title = _clean_devlog_title(line.substr(3))
+			entry_bullet_count = 0
+			continue
+
+		if not in_entry:
+			continue
+		if line == "---":
+			in_entry = false
+			continue
+		if not line.begins_with("- "):
+			continue
+
+		var item := line.substr(2).strip_edges()
+		if entry_bullet_count == 0 and not current_title.is_empty():
+			item = "%s: %s" % [current_title, item]
+		items.append(item)
+		entry_bullet_count += 1
+		if items.size() >= DEVLOG_MAX_ITEMS:
+			break
+
+	return items
+
+
+func _read_text_file(path: String) -> String:
+	if not FileAccess.file_exists(path):
+		return ""
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return ""
+	return file.get_as_text()
+
+
+func _clean_devlog_title(title: String) -> String:
+	var clean := title.strip_edges()
+	var date_separator := " — "
+	var date_index := clean.find(date_separator)
+	if date_index != -1:
+		clean = clean.substr(date_index + date_separator.length()).strip_edges()
+
+	var project_prefix := "Voidascend: "
+	if clean.begins_with(project_prefix):
+		clean = clean.substr(project_prefix.length()).strip_edges()
+	return clean
 
 
 func _section(label: String, items: Array[String]) -> Control:
