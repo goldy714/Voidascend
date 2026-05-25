@@ -1,6 +1,6 @@
 # Coordination — Voidascend
 
-Tento soubor zachycuje přesný stav rozepsané práce. Při každém startu sezení ho přečti. Při každém ukončení (i násilném) ho aktualizuj. Obsah se přepisuje — udržuje vždy aktuální stav, ne historii (ta patří do devlog.md).
+Tento soubor zachycuje přesný stav rozepsané práce. Obsah se přepisuje — udržuje vždy aktuální stav, ne historii (ta patří do devlog.md). Stabilní instrukce pro AI agenty jsou v `AGENTS.md`.
 
 ---
 
@@ -47,12 +47,3 @@ Při zahájení práce na úkolu vyplň a vlož sem:
 ### Co je potřeba od uživatele (pokud blocked)
 - otázka nebo blokátor
 ```
-
----
-
-## Instrukce pro Claude
-
-1. **Na začátku sezení:** přečti tento soubor → navaz přesně tam, kde předchozí sezení skončilo.
-2. **Během práce:** aktualizuj sekci "Aktuální stav" při každé větší změně (nový krok hotov, nový blokátor, nové rozhodnutí).
-3. **Na konci sezení:** aktualizuj stav na poslední nedokončený krok, přidej kontext nutný pro navázání.
-4. **Po dokončení úkolu:** přesuň shrnutí do devlog.md, sekci "Aktuální stav" vynuluj.
