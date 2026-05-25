@@ -1,4 +1,4 @@
-class_name ShipDraw
+class_name ShipDraw extends RefCounted
 
 # Cell size for module grid and origin offset
 const CELL: float    = 20.0

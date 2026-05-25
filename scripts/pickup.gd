@@ -67,3 +67,7 @@ func attract_to_point(p: Vector2, strength: float) -> void:
 func attract_to(target: Node2D) -> void:
 	if is_instance_valid(target):
 		attract_to_point(target.global_position, 0.20)
+
+func _on_body_entered(body: Node2D) -> void:
+	if body.has_method("collect") and body.collect(metal, crystals):
+		queue_free()

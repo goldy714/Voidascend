@@ -69,10 +69,10 @@ func _spawn_pickups(pos: Vector2, metal: int, crystals: int) -> void:
 		var p: Area2D = PICKUP_SCENE.instantiate()
 		p.global_position = pos
 		p.metal = metal
-		get_parent().add_child(p)
+		get_parent().call_deferred("add_child", p)
 
 	if crystals > 0:
 		var p: Area2D = PICKUP_SCENE.instantiate()
 		p.global_position = pos + Vector2(16.0, 0.0)
 		p.crystals = crystals
-		get_parent().add_child(p)
+		get_parent().call_deferred("add_child", p)

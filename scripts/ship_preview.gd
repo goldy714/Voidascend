@@ -3,6 +3,8 @@ extends Control
 ## Place inside a Container; set custom_minimum_size to control area.
 ## The ship is automatically scaled to fill the control and animated.
 
+const ShipDraw = preload("res://scripts/ship_draw.gd")
+
 @export var preview_scale: float = 2.5
 
 func _draw() -> void:

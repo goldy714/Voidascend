@@ -3,6 +3,8 @@ extends Control
 ## Animated module icon — draws the ShipDraw module graphic inside a coloured tile.
 ## Set module_id before adding to the scene tree.
 
+const ShipDraw = preload("res://scripts/ship_draw.gd")
+
 var module_id: String  = ""
 var icon_scale: float  = 3.2   # px per ShipDraw unit
 var aim: Vector2       = Vector2.UP

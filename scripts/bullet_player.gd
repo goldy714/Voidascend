@@ -24,7 +24,8 @@ func _ready() -> void:
 	var cs := CollisionShape2D.new()
 	cs.shape = shape
 	add_child(cs)
-	body_entered.connect(_on_body_entered)
+	if not body_entered.is_connected(_on_body_entered):
+		body_entered.connect(_on_body_entered)
 	rotation = dir.angle() + PI / 2.0
 
 	var spr := Sprite2D.new()

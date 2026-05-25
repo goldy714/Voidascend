@@ -6,6 +6,8 @@ signal metal_changed(amount: int)
 signal crystals_changed(amount: int)
 
 const BULLET_SCENE = preload("res://scenes/bullet_player.tscn")
+const ShipDraw = preload("res://scripts/ship_draw.gd")
+const CollectorArmScript = preload("res://scripts/collector_arm.gd")
 
 # ── Runtime stats (set from GameData in _ready) ─────────────────
 var _stats: Dictionary = {}
@@ -72,7 +74,7 @@ func _apply_modules() -> void:
 func _spawn_collector_arms(ship: Dictionary) -> void:
 	# Clear any existing arms (in case stats are recomputed)
 	for n in get_children():
-		if n is CollectorArm:
+		if n.get_script() == CollectorArmScript:
 			n.queue_free()
 	# Only spawn if we can actually collect (need cargo to store it)
 	if not _has_cargo:
@@ -80,7 +82,7 @@ func _spawn_collector_arms(ship: Dictionary) -> void:
 	var grid: Vector2i = ship.get("grid", Vector2i(3, 3))
 	var origin: Vector2 = ShipDraw.get_grid_origin(grid.x, grid.y)
 	for c: Dictionary in _stats.get("collectors", []):
-		var arm: CollectorArm = CollectorArm.new()
+		var arm := CollectorArmScript.new()
 		arm.arm_type       = c["type"]
 		arm.reach          = c["reach"]
 		arm.attract_radius = c["attract_radius"]
