@@ -1,20 +1,40 @@
 extends Node2D
 
 const PLANET_RADIUS: float = 56.0
+const PLANET_ART_DIR: String = "res://assets/fx"
 
-# Screen positions for each planet on the map
-const PLANET_POSITIONS: Dictionary = {
-	"glacius":     Vector2(210, 730),
-	"infernus":    Vector2(460, 510),
-	"toxar":       Vector2(700, 720),
-	"shadowveil":  Vector2(945, 500),
-	"void_station":Vector2(1165, 710),
+# Normalized positions inside the available map area.
+const PLANET_LAYOUT: Dictionary = {
+	"glacius":      Vector2(0.08, 0.76),
+	"infernus":     Vector2(0.30, 0.34),
+	"toxar":        Vector2(0.52, 0.78),
+	"shadowveil":   Vector2(0.74, 0.34),
+	"void_station": Vector2(0.94, 0.74),
 }
+
+const TOP_BAR_HEIGHT: float = 58.0
+const PANEL_MARGIN: float = 12.0
+const PANEL_GAP: float = 34.0
+const PANEL_MIN_WIDTH: float = 340.0
+const PANEL_MAX_WIDTH: float = 555.0
+const PANEL_WIDTH_RATIO: float = 0.42
+const COMPACT_WIDTH: float = 900.0
+const MAP_TOP_MARGIN: float = 42.0
+const MAP_SIDE_MARGIN: float = 64.0
+const MAP_BOTTOM_MARGIN: float = 92.0
 
 const MISSION_NAMES: Array[String] = ["Mise 1", "Mise 2", "Mise 3", "⚡ BOSS"]
 
 var _selected: String = ""
 var _panel_vbox: VBoxContainer
+var _mission_panel: PanelContainer
+var _bg_rect: ColorRect
+var _planet_art_rects: Dictionary = {}
+var _planet_emoji_labels: Dictionary = {}
+var _planet_name_labels: Dictionary = {}
+var _planet_buttons: Dictionary = {}
+var _planet_art_cache: Dictionary = {}
+var _last_viewport_size: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	_build_bg()
@@ -23,11 +43,15 @@ func _ready() -> void:
 	_build_top_bar(ui)
 	_build_planet_nodes(ui)
 	_build_mission_panel(ui)
+	_update_layout(true)
 	_select_planet("glacius")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and not event.is_echo():
 		SettingsMenu.open()
+
+func _process(_delta: float) -> void:
+	_update_layout()
 
 func _draw() -> void:
 	_draw_paths()
@@ -37,10 +61,10 @@ func _draw() -> void:
 # ── Background ────────────────────────────────────────────────
 
 func _build_bg() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.02, 0.02, 0.09)
-	bg.size = get_viewport_rect().size
-	add_child(bg)
+	_bg_rect = ColorRect.new()
+	_bg_rect.color = Color(0.02, 0.02, 0.09)
+	_bg_rect.size = get_viewport_rect().size
+	add_child(_bg_rect)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 53
 	var sz: Vector2 = get_viewport_rect().size
@@ -58,22 +82,25 @@ func _draw_paths() -> void:
 	for i: int in range(GameData.PLANET_ORDER.size() - 1):
 		var pid_a: String = GameData.PLANET_ORDER[i]
 		var pid_b: String = GameData.PLANET_ORDER[i + 1]
-		var a: Vector2 = PLANET_POSITIONS[pid_a]
-		var b: Vector2 = PLANET_POSITIONS[pid_b]
+		var a: Vector2 = _planet_position(pid_a)
+		var b: Vector2 = _planet_position(pid_b)
 		var unlocked: bool = GameData.is_planet_unlocked(pid_b)
 		var col: Color = Color(0.35, 0.55, 0.90, 0.55) if unlocked \
 						else Color(0.18, 0.20, 0.30, 0.45)
 		var total: float = a.distance_to(b)
+		if total <= 0.001:
+			continue
 		var dir: Vector2 = (b - a) / total
-		var t: float = PLANET_RADIUS + 8.0
+		var radius: float = _planet_radius()
+		var t: float = radius + 8.0
 		var dash: float = 13.0
 		var gap: float  = 7.0
-		while t + dash < total - PLANET_RADIUS - 8.0:
+		while t + dash < total - radius - 8.0:
 			draw_line(a + dir * t, a + dir * (t + dash), col, 2.0)
 			t += dash + gap
 		# Arrow head near destination planet
 		if unlocked:
-			var tip: Vector2 = b - dir * (PLANET_RADIUS + 5.0)
+			var tip: Vector2 = b - dir * (radius + 5.0)
 			var perp: Vector2 = Vector2(-dir.y, dir.x)
 			draw_line(tip - dir * 9.0 + perp * 5.5, tip, col, 2.0)
 			draw_line(tip - dir * 9.0 - perp * 5.5, tip, col, 2.0)
@@ -81,36 +108,41 @@ func _draw_paths() -> void:
 # ── Planet circle drawing ─────────────────────────────────────
 
 func _draw_planet(pid: String) -> void:
-	var pos: Vector2   = PLANET_POSITIONS[pid]
+	var pos: Vector2 = _planet_position(pid)
+	var radius: float = _planet_radius()
 	var pdata: Dictionary = GameData.PLANET_DATA[pid]
-	var col: Color     = pdata["color"]
+	var col: Color = pdata["color"]
 	var unlocked: bool = GameData.is_planet_unlocked(pid)
-	var done: int      = GameData.missions_done.get(pid, 0)
-	var is_sel: bool   = (_selected == pid)
+	var done: int = GameData.missions_done.get(pid, 0)
+	var is_sel: bool = (_selected == pid)
 
 	if not unlocked:
 		col = Color(0.16, 0.16, 0.22)
 
 	# Selection glow
 	if is_sel:
-		draw_circle(pos, PLANET_RADIUS + 14.0, Color(col.r, col.g, col.b, 0.10))
-		draw_arc(pos, PLANET_RADIUS + 9.0, 0.0, TAU, 48,
+		draw_circle(pos, radius + 14.0, Color(col.r, col.g, col.b, 0.10))
+		draw_arc(pos, radius + 9.0, 0.0, TAU, 48,
 			Color(col.r, col.g, col.b, 0.80), 2.5)
 
 	# Drop shadow
-	draw_circle(pos + Vector2(4.0, 5.0), PLANET_RADIUS, Color(0.0, 0.0, 0.0, 0.38))
+	draw_circle(pos + Vector2(4.0, 5.0), radius, Color(0.0, 0.0, 0.0, 0.38))
 
-	# Body fill
-	draw_circle(pos, PLANET_RADIUS,
-		Color(col.r * 0.16, col.g * 0.18, col.b * 0.20, 0.97))
+	var texture: Texture2D = _get_planet_art(pid)
+	if texture != null:
+		var rect := Rect2(
+			pos - Vector2(radius, radius),
+			Vector2(radius * 2.0, radius * 2.0)
+		)
+		var tint := Color(1.0, 1.0, 1.0, 1.0) if unlocked \
+				else Color(0.30, 0.30, 0.38, 0.46)
+		draw_texture_rect(texture, rect, false, tint)
+	else:
+		_draw_planet_body_fallback(pos, col, radius)
 
-	# Colored rim
-	draw_arc(pos, PLANET_RADIUS, 0.0, TAU, 48,
+	# Colored rim keeps progression state readable over detailed art.
+	draw_arc(pos, radius, 0.0, TAU, 48,
 		Color(col.r, col.g, col.b, 0.88 if unlocked else 0.22), 2.8)
-
-	# Inner sheen
-	draw_arc(pos, PLANET_RADIUS * 0.60, PI * 1.1, PI * 1.7, 12,
-		Color(1.0, 1.0, 1.0, 0.09), PLANET_RADIUS * 0.40)
 
 	# Padlock overlay on locked planets
 	if not unlocked:
@@ -126,7 +158,33 @@ func _draw_planet(pid: String) -> void:
 			Color(0.42, 0.44, 0.58, 0.85))
 
 	# Progress dots below
-	_draw_progress_dots(pos + Vector2(0.0, PLANET_RADIUS + 26.0), done, unlocked, col)
+	_draw_progress_dots(pos + Vector2(0.0, radius + 26.0), done, unlocked, col)
+
+func _draw_planet_body_fallback(pos: Vector2, col: Color, radius: float) -> void:
+	# Fallback for missing PNG assets; detailed art should be used in normal builds.
+	draw_circle(pos, radius,
+		Color(col.r * 0.16, col.g * 0.18, col.b * 0.20, 0.97))
+	draw_arc(pos, radius * 0.60, PI * 1.1, PI * 1.7, 12,
+		Color(1.0, 1.0, 1.0, 0.09), radius * 0.40)
+
+func _get_planet_art(pid: String) -> Texture2D:
+	var path: String = "%s/planet_%s.png" % [PLANET_ART_DIR, pid]
+	if _planet_art_cache.has(path):
+		return _planet_art_cache[path] as Texture2D
+
+	var texture: Texture2D = null
+	if ResourceLoader.exists(path, "Texture2D"):
+		texture = load(path) as Texture2D
+
+	if texture == null and FileAccess.file_exists(path):
+		var image: Image = Image.new()
+		var err: int = image.load(path)
+		if err == OK and not image.is_empty():
+			texture = ImageTexture.create_from_image(image)
+
+	if texture != null:
+		_planet_art_cache[path] = texture
+	return texture
 
 func _draw_progress_dots(base: Vector2, done: int, unlocked: bool, col: Color) -> void:
 	var gap: float = 15.0
@@ -150,23 +208,29 @@ func _draw_progress_dots(base: Vector2, done: int, unlocked: bool, col: Color) -
 
 func _build_planet_nodes(ui: CanvasLayer) -> void:
 	for pid: String in GameData.PLANET_ORDER:
-		var pos: Vector2 = PLANET_POSITIONS[pid]
 		var pdata: Dictionary = GameData.PLANET_DATA[pid]
 		var col: Color = pdata["color"]
 		var unlocked: bool = GameData.is_planet_unlocked(pid)
 
-		# Emoji centered on circle
+		var planet_art := TextureRect.new()
+		planet_art.texture = _get_planet_art(pid)
+		planet_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		planet_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ui.add_child(planet_art)
+		_planet_art_rects[pid] = planet_art
+
+		# Emoji fallback for missing art. Hidden when PNG art is available.
 		var emo := Label.new()
 		emo.text = pdata["emoji"]
 		emo.add_theme_font_size_override("font_size", 28)
-		emo.position = pos - Vector2(17.0, 19.0)
 		emo.size = Vector2(34.0, 38.0)
 		emo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		emo.vertical_alignment   = VERTICAL_ALIGNMENT_CENTER
+		emo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		emo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if not unlocked:
 			emo.modulate = Color(0.0, 0.0, 0.0, 0.0)
 		ui.add_child(emo)
+		_planet_emoji_labels[pid] = emo
 
 		# Name label below circle
 		var nl := Label.new()
@@ -174,24 +238,154 @@ func _build_planet_nodes(ui: CanvasLayer) -> void:
 		nl.add_theme_font_size_override("font_size", 14)
 		nl.add_theme_color_override("font_color",
 			col if unlocked else Color(0.28, 0.28, 0.38))
-		nl.position = Vector2(pos.x - 70.0, pos.y + PLANET_RADIUS + 4.0)
 		nl.size = Vector2(140.0, 22.0)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ui.add_child(nl)
+		_planet_name_labels[pid] = nl
 
 		# Invisible click button (only unlocked planets clickable)
 		if unlocked:
 			var btn := Button.new()
-			var r: float = PLANET_RADIUS * 2.2
-			btn.position = pos - Vector2(r * 0.5, r * 0.5)
-			btn.size = Vector2(r, r)
 			btn.flat = true
 			for sname: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 				btn.add_theme_stylebox_override(sname, StyleBoxEmpty.new())
 			btn.tooltip_text = pdata["name"]
 			btn.pressed.connect(func() -> void: _select_planet(pid))
 			ui.add_child(btn)
+			_planet_buttons[pid] = btn
+
+func _update_layout(force: bool = false) -> void:
+	var viewport_size: Vector2 = get_viewport_rect().size
+	if not force and viewport_size == _last_viewport_size:
+		return
+
+	_last_viewport_size = viewport_size
+	if _bg_rect != null:
+		_bg_rect.size = viewport_size
+	_layout_mission_panel(viewport_size)
+	_layout_planet_nodes()
+	if not _selected.is_empty():
+		_refresh_panel()
+	queue_redraw()
+
+func _layout_mission_panel(viewport_size: Vector2) -> void:
+	if _mission_panel == null:
+		return
+
+	if _is_compact_layout(viewport_size):
+		var panel_height: float = _compact_panel_height(viewport_size)
+		_mission_panel.anchor_left = 0.0
+		_mission_panel.anchor_right = 1.0
+		_mission_panel.anchor_top = 1.0
+		_mission_panel.anchor_bottom = 1.0
+		_mission_panel.offset_left = PANEL_MARGIN
+		_mission_panel.offset_right = -PANEL_MARGIN
+		_mission_panel.offset_top = -panel_height - PANEL_MARGIN
+		_mission_panel.offset_bottom = -PANEL_MARGIN
+	else:
+		var panel_width: float = _wide_panel_width(viewport_size)
+		_mission_panel.anchor_left = 1.0
+		_mission_panel.anchor_right = 1.0
+		_mission_panel.anchor_top = 0.0
+		_mission_panel.anchor_bottom = 1.0
+		_mission_panel.offset_left = -panel_width - PANEL_MARGIN
+		_mission_panel.offset_right = -PANEL_MARGIN
+		_mission_panel.offset_top = TOP_BAR_HEIGHT + 4.0
+		_mission_panel.offset_bottom = -PANEL_MARGIN
+
+func _layout_planet_nodes() -> void:
+	for pid: String in GameData.PLANET_ORDER:
+		var pos: Vector2 = _planet_position(pid)
+		var radius: float = _planet_radius()
+		var unlocked: bool = GameData.is_planet_unlocked(pid)
+		var texture: Texture2D = _get_planet_art(pid)
+
+		if _planet_art_rects.has(pid):
+			var art_rect: TextureRect = _planet_art_rects[pid] as TextureRect
+			art_rect.texture = texture
+			art_rect.visible = texture != null
+			art_rect.position = pos - Vector2(radius, radius)
+			art_rect.size = Vector2(radius * 2.0, radius * 2.0)
+			art_rect.modulate = Color.WHITE if unlocked else Color(0.30, 0.30, 0.38, 0.46)
+
+		if _planet_emoji_labels.has(pid):
+			var emo: Label = _planet_emoji_labels[pid] as Label
+			emo.position = pos - Vector2(17.0, 19.0)
+			emo.visible = unlocked and texture == null
+
+		if _planet_name_labels.has(pid):
+			var nl: Label = _planet_name_labels[pid] as Label
+			var pdata: Dictionary = GameData.PLANET_DATA[pid]
+			var col: Color = pdata["color"]
+			nl.position = Vector2(pos.x - 70.0, pos.y + radius + 4.0)
+			nl.add_theme_color_override("font_color",
+				col if unlocked else Color(0.28, 0.28, 0.38))
+
+		if _planet_buttons.has(pid):
+			var btn: Button = _planet_buttons[pid] as Button
+			var r: float = _planet_radius() * 2.2
+			btn.position = pos - Vector2(r * 0.5, r * 0.5)
+			btn.size = Vector2(r, r)
+
+func _planet_position(pid: String) -> Vector2:
+	var map_rect: Rect2 = _map_rect()
+	var radius: float = _planet_radius()
+	var layout: Vector2 = PLANET_LAYOUT.get(pid, Vector2(0.5, 0.5))
+	var pos: Vector2 = map_rect.position + Vector2(layout.x * map_rect.size.x, layout.y * map_rect.size.y)
+	var map_end: Vector2 = map_rect.position + map_rect.size
+	var min_x: float = map_rect.position.x + radius + 12.0
+	var max_x: float = map_end.x - radius - 12.0
+	var min_y: float = map_rect.position.y + radius + 10.0
+	var max_y: float = map_end.y - radius - 52.0
+	return Vector2(
+		_clampf_safe(pos.x, min_x, max_x),
+		_clampf_safe(pos.y, min_y, max_y)
+	)
+
+func _map_rect(viewport_size: Vector2 = Vector2.ZERO) -> Rect2:
+	if viewport_size == Vector2.ZERO:
+		viewport_size = get_viewport_rect().size
+
+	var left: float = max(MAP_SIDE_MARGIN, viewport_size.x * 0.055)
+	var top: float = TOP_BAR_HEIGHT + MAP_TOP_MARGIN
+	var right: float
+	var bottom: float
+
+	if _is_compact_layout(viewport_size):
+		bottom = viewport_size.y - _compact_panel_height(viewport_size) - PANEL_MARGIN - PANEL_GAP
+		right = viewport_size.x - left
+	else:
+		right = viewport_size.x - _wide_panel_width(viewport_size) - PANEL_MARGIN - PANEL_GAP
+		bottom = viewport_size.y - MAP_BOTTOM_MARGIN
+
+	var radius: float = _planet_radius(viewport_size)
+	var min_size := Vector2(radius * 3.0, radius * 2.7)
+	return Rect2(
+		Vector2(left, top),
+		Vector2(max(min_size.x, right - left), max(min_size.y, bottom - top))
+	)
+
+func _planet_radius(viewport_size: Vector2 = Vector2.ZERO) -> float:
+	if viewport_size == Vector2.ZERO:
+		viewport_size = get_viewport_rect().size
+	if _is_compact_layout(viewport_size):
+		return clampf(viewport_size.x / 14.0, 30.0, 46.0)
+	return PLANET_RADIUS
+
+func _wide_panel_width(viewport_size: Vector2) -> float:
+	return clampf(viewport_size.x * PANEL_WIDTH_RATIO, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH)
+
+func _compact_panel_height(viewport_size: Vector2) -> float:
+	return clampf(viewport_size.y * 0.38, 230.0, 330.0)
+
+func _is_compact_layout(viewport_size: Vector2) -> bool:
+	return viewport_size.x < COMPACT_WIDTH
+
+func _clampf_safe(value: float, min_value: float, max_value: float) -> float:
+	if min_value > max_value:
+		return (min_value + max_value) * 0.5
+	return clampf(value, min_value, max_value)
 
 # ── Top bar ───────────────────────────────────────────────────
 
@@ -228,21 +422,13 @@ func _build_top_bar(ui: CanvasLayer) -> void:
 # ── Mission panel (right side) ────────────────────────────────
 
 func _build_mission_panel(ui: CanvasLayer) -> void:
-	var panel := PanelContainer.new()
-	panel.anchor_left   = 1.0
-	panel.anchor_right  = 1.0
-	panel.anchor_top    = 0.0
-	panel.anchor_bottom = 1.0
-	panel.offset_left   = -555.0
-	panel.offset_top    = 62.0
-	panel.offset_right  = -12.0
-	panel.offset_bottom = -12.0
-	ui.add_child(panel)
+	_mission_panel = PanelContainer.new()
+	ui.add_child(_mission_panel)
 
 	var margin := MarginContainer.new()
 	for side: String in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 22)
-	panel.add_child(margin)
+	_mission_panel.add_child(margin)
 
 	_panel_vbox = VBoxContainer.new()
 	_panel_vbox.add_theme_constant_override("separation", 10)
@@ -266,12 +452,40 @@ func _refresh_panel() -> void:
 	var col: Color = pdata.get("color", Color.WHITE)
 	var done: int  = GameData.missions_done.get(_selected, 0)
 
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 14)
+	_panel_vbox.add_child(header)
+
+	var preview_size: float = 82.0 if _is_compact_layout(get_viewport_rect().size) else 112.0
+	var texture: Texture2D = _get_planet_art(_selected)
+	if texture != null:
+		var preview := TextureRect.new()
+		preview.texture = texture
+		preview.custom_minimum_size = Vector2(preview_size, preview_size)
+		preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(preview)
+	else:
+		var fallback := Label.new()
+		fallback.text = pdata.get("emoji", "")
+		fallback.custom_minimum_size = Vector2(preview_size, preview_size)
+		fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fallback.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fallback.add_theme_font_size_override("font_size", int(preview_size * 0.42))
+		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(fallback)
+
+	var header_text := VBoxContainer.new()
+	header_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_text.add_theme_constant_override("separation", 6)
+	header.add_child(header_text)
+
 	# Planet title
 	var title_lbl := Label.new()
-	title_lbl.text = "%s  %s" % [pdata.get("emoji", ""), pdata.get("name", _selected)]
-	title_lbl.add_theme_font_size_override("font_size", 30)
+	title_lbl.text = pdata.get("name", _selected)
+	title_lbl.add_theme_font_size_override("font_size", 26 if _is_compact_layout(get_viewport_rect().size) else 30)
 	title_lbl.add_theme_color_override("font_color", col)
-	_panel_vbox.add_child(title_lbl)
+	header_text.add_child(title_lbl)
 
 	# Description
 	var desc_lbl := Label.new()
@@ -279,7 +493,7 @@ func _refresh_panel() -> void:
 	desc_lbl.add_theme_font_size_override("font_size", 13)
 	desc_lbl.add_theme_color_override("font_color", Color(0.52, 0.55, 0.68))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_panel_vbox.add_child(desc_lbl)
+	header_text.add_child(desc_lbl)
 
 	_panel_vbox.add_child(_gap(8))
 
