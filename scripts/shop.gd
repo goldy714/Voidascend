@@ -124,10 +124,12 @@ func _refresh_list() -> void:
 	_crystal_lbl.text = "  💎 %d" % GameData.void_crystals
 
 	# Sort: researched first, then by research_cost
-	var module_ids := GameData.MODULE_DATA.keys()
+	var module_ids: Array[String] = []
+	for module_id: String in GameData.MODULE_DATA.keys():
+		module_ids.append(module_id)
 	module_ids.sort_custom(func(a: String, b: String) -> bool:
-		var ra := a in GameData.researched_modules
-		var rb := b in GameData.researched_modules
+		var ra: bool = a in GameData.researched_modules
+		var rb: bool = b in GameData.researched_modules
 		if ra != rb: return ra
 		return GameData.MODULE_DATA[a].get("research_cost", 0) < \
 			   GameData.MODULE_DATA[b].get("research_cost", 0)
