@@ -11,6 +11,8 @@ const ARCHITECTURE: Array[String] = [
 const DEVLOG_PATH := "res://devlog.md"
 const DEVLOG_ENTRIES_TO_SHOW := 6
 const DEVLOG_MAX_ITEMS := 20
+const DEV_WINDOW_MAX_SIZE := Vector2(760.0, 560.0)
+const DEV_WINDOW_EDGE_PADDING := 16.0
 
 var _layer: CanvasLayer = null
 
@@ -54,13 +56,15 @@ func _build_window() -> void:
 	_layer.add_child(dim)
 
 	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	panel.custom_minimum_size = Vector2(760, 560)
+	panel.clip_contents = true
 	_layer.add_child(panel)
+	_fit_panel_to_viewport(panel)
 
 	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 22)
 	margin.add_theme_constant_override("margin_right", 22)
 	margin.add_theme_constant_override("margin_top", 18)
@@ -69,6 +73,8 @@ func _build_window() -> void:
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_child(vbox)
 
 	var header := HBoxContainer.new()
@@ -77,6 +83,7 @@ func _build_window() -> void:
 
 	var title := Label.new()
 	title.text = "VÝVOJÁŘSKÝ PŘEHLED"
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.add_theme_font_size_override("font_size", 28)
 	title.add_theme_color_override("font_color", Color(0.25, 0.75, 1.00))
@@ -91,14 +98,25 @@ func _build_window() -> void:
 	var hint := Label.new()
 	hint.text = "F1 přepíná toto okno. Obsah shrnuje základní architekturu hry a nejnovější záznamy z devlogu."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.add_theme_font_size_override("font_size", 13)
 	hint.add_theme_color_override("font_color", Color(0.56, 0.62, 0.74))
 	vbox.add_child(hint)
 
-	vbox.add_child(HSeparator.new())
-	vbox.add_child(_section("Architektura", ARCHITECTURE))
-	vbox.add_child(HSeparator.new())
-	vbox.add_child(_section("Poslední změny z devlogu", _load_last_load_changes()))
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 12)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(body)
+
+	body.add_child(HSeparator.new())
+	body.add_child(_section("Architektura", ARCHITECTURE))
+	body.add_child(HSeparator.new())
+	body.add_child(_section("Poslední změny z devlogu", _load_last_load_changes()))
 
 	dim.gui_input.connect(func(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.pressed:
@@ -106,9 +124,20 @@ func _build_window() -> void:
 	)
 
 	await get_tree().process_frame
-	var vp := get_viewport().get_visible_rect().size
-	panel.position = (vp - panel.size) * 0.5
+	_fit_panel_to_viewport(panel)
 
+
+func _fit_panel_to_viewport(panel: PanelContainer) -> void:
+	var viewport_size := get_viewport().get_visible_rect().size
+	var available_width: float = max(1.0, viewport_size.x - DEV_WINDOW_EDGE_PADDING * 2.0)
+	var available_height: float = max(1.0, viewport_size.y - DEV_WINDOW_EDGE_PADDING * 2.0)
+	var target_size := Vector2(
+		min(DEV_WINDOW_MAX_SIZE.x, available_width),
+		min(DEV_WINDOW_MAX_SIZE.y, available_height)
+	)
+	panel.custom_minimum_size = target_size
+	panel.size = target_size
+	panel.position = (viewport_size - target_size) * 0.5
 
 func _load_last_load_changes() -> Array[String]:
 	var devlog := _read_text_file(DEVLOG_PATH)
