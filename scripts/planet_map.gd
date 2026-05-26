@@ -1,6 +1,9 @@
 extends Node2D
 
 const PLANET_RADIUS: float = 56.0
+const PLANET_HOVER_SCALE: float = 1.18
+const PLANET_HOVER_SPEED: float = 18.0
+const PLANET_HOVER_EPSILON: float = 0.002
 const PLANET_ART_DIR: String = "res://assets/fx"
 
 # Normalized positions inside the available map area.
@@ -10,6 +13,14 @@ const PLANET_LAYOUT: Dictionary = {
 	"toxar":        Vector2(0.52, 0.78),
 	"shadowveil":   Vector2(0.74, 0.34),
 	"void_station": Vector2(0.94, 0.74),
+}
+
+const PLANET_ART_REGIONS: Dictionary = {
+	"glacius": Rect2(12.0, 12.0, 104.0, 104.0),
+	"infernus": Rect2(17.0, 17.0, 93.0, 94.0),
+	"toxar": Rect2(28.0, 28.0, 71.0, 72.0),
+	"shadowveil": Rect2(19.0, 19.0, 91.0, 90.0),
+	"void_station": Rect2(12.0, 23.0, 103.0, 100.0),
 }
 
 const TOP_BAR_HEIGHT: float = 58.0
@@ -24,16 +35,22 @@ const MAP_SIDE_MARGIN: float = 64.0
 const MAP_BOTTOM_MARGIN: float = 92.0
 
 const MISSION_NAMES: Array[String] = ["Mise 1", "Mise 2", "Mise 3", "⚡ BOSS"]
+const MISSION_PANEL_CHANGE_DURATION: float = 0.24
+const MISSION_PANEL_CHANGE_SCALE: float = 0.975
 
 var _selected: String = ""
+var _hovered_planet: String = ""
 var _panel_vbox: VBoxContainer
 var _mission_panel: PanelContainer
+var _mission_panel_tween: Tween = null
 var _bg_rect: ColorRect
 var _planet_art_rects: Dictionary = {}
 var _planet_emoji_labels: Dictionary = {}
 var _planet_name_labels: Dictionary = {}
 var _planet_buttons: Dictionary = {}
 var _planet_art_cache: Dictionary = {}
+var _planet_display_texture_cache: Dictionary = {}
+var _planet_hover_scales: Dictionary = {}
 var _last_viewport_size: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
@@ -50,8 +67,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and not event.is_echo():
 		SettingsMenu.open()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_update_layout()
+	if _update_hover_zoom(delta):
+		_layout_planet_nodes()
+		queue_redraw()
 
 func _draw() -> void:
 	_draw_paths()
@@ -110,6 +130,7 @@ func _draw_paths() -> void:
 func _draw_planet(pid: String) -> void:
 	var pos: Vector2 = _planet_position(pid)
 	var radius: float = _planet_radius()
+	var visual_radius: float = _planet_visual_radius(pid)
 	var pdata: Dictionary = GameData.PLANET_DATA[pid]
 	var col: Color = pdata["color"]
 	var unlocked: bool = GameData.is_planet_unlocked(pid)
@@ -121,27 +142,25 @@ func _draw_planet(pid: String) -> void:
 
 	# Selection glow
 	if is_sel:
-		draw_circle(pos, radius + 14.0, Color(col.r, col.g, col.b, 0.10))
-		draw_arc(pos, radius + 9.0, 0.0, TAU, 48,
+		draw_circle(pos, visual_radius + 14.0, Color(col.r, col.g, col.b, 0.10))
+		draw_arc(pos, visual_radius + 9.0, 0.0, TAU, 48,
 			Color(col.r, col.g, col.b, 0.80), 2.5)
 
 	# Drop shadow
-	draw_circle(pos + Vector2(4.0, 5.0), radius, Color(0.0, 0.0, 0.0, 0.38))
+	draw_circle(pos + Vector2(4.0, 5.0), visual_radius, Color(0.0, 0.0, 0.0, 0.38))
 
 	var texture: Texture2D = _get_planet_art(pid)
 	if texture != null:
-		var rect := Rect2(
-			pos - Vector2(radius, radius),
-			Vector2(radius * 2.0, radius * 2.0)
-		)
+		var rect: Rect2 = _planet_art_rect(pid, pos, visual_radius)
+		var region: Rect2 = _planet_art_region(pid)
 		var tint := Color(1.0, 1.0, 1.0, 1.0) if unlocked \
 				else Color(0.30, 0.30, 0.38, 0.46)
-		draw_texture_rect(texture, rect, false, tint)
+		draw_texture_rect_region(texture, rect, region, tint)
 	else:
-		_draw_planet_body_fallback(pos, col, radius)
+		_draw_planet_body_fallback(pos, col, visual_radius)
 
 	# Colored rim keeps progression state readable over detailed art.
-	draw_arc(pos, radius, 0.0, TAU, 48,
+	draw_arc(pos, visual_radius, 0.0, TAU, 48,
 		Color(col.r, col.g, col.b, 0.88 if unlocked else 0.22), 2.8)
 
 	# Padlock overlay on locked planets
@@ -158,7 +177,7 @@ func _draw_planet(pid: String) -> void:
 			Color(0.42, 0.44, 0.58, 0.85))
 
 	# Progress dots below
-	_draw_progress_dots(pos + Vector2(0.0, radius + 26.0), done, unlocked, col)
+	_draw_progress_dots(pos + Vector2(0.0, radius + 40.0), done, unlocked, col)
 
 func _draw_planet_body_fallback(pos: Vector2, col: Color, radius: float) -> void:
 	# Fallback for missing PNG assets; detailed art should be used in normal builds.
@@ -212,9 +231,11 @@ func _build_planet_nodes(ui: CanvasLayer) -> void:
 		var col: Color = pdata["color"]
 		var unlocked: bool = GameData.is_planet_unlocked(pid)
 
+		_planet_hover_scales[pid] = 1.0
+
 		var planet_art := TextureRect.new()
-		planet_art.texture = _get_planet_art(pid)
-		planet_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		planet_art.texture = _get_planet_display_texture(pid)
+		planet_art.stretch_mode = TextureRect.STRETCH_SCALE
 		planet_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ui.add_child(planet_art)
 		_planet_art_rects[pid] = planet_art
@@ -238,7 +259,8 @@ func _build_planet_nodes(ui: CanvasLayer) -> void:
 		nl.add_theme_font_size_override("font_size", 14)
 		nl.add_theme_color_override("font_color",
 			col if unlocked else Color(0.28, 0.28, 0.38))
-		nl.size = Vector2(140.0, 22.0)
+		nl.custom_minimum_size = Vector2(150.0, 22.0)
+		nl.size = Vector2(150.0, 22.0)
 		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ui.add_child(nl)
@@ -250,7 +272,8 @@ func _build_planet_nodes(ui: CanvasLayer) -> void:
 			btn.flat = true
 			for sname: String in ["normal", "hover", "pressed", "focus", "disabled"]:
 				btn.add_theme_stylebox_override(sname, StyleBoxEmpty.new())
-			btn.tooltip_text = pdata["name"]
+			btn.mouse_entered.connect(func() -> void: _set_hovered_planet(pid))
+			btn.mouse_exited.connect(func() -> void: _clear_hovered_planet(pid))
 			btn.pressed.connect(func() -> void: _select_planet(pid))
 			ui.add_child(btn)
 			_planet_buttons[pid] = btn
@@ -301,32 +324,40 @@ func _layout_planet_nodes() -> void:
 		var unlocked: bool = GameData.is_planet_unlocked(pid)
 		var texture: Texture2D = _get_planet_art(pid)
 
+		var hover_scale: float = _planet_hover_scale(pid)
+
 		if _planet_art_rects.has(pid):
 			var art_rect: TextureRect = _planet_art_rects[pid] as TextureRect
-			art_rect.texture = texture
+			var art_size: Vector2 = _planet_art_display_size(pid, radius)
+			art_rect.texture = _get_planet_display_texture(pid)
 			art_rect.visible = texture != null
-			art_rect.position = pos - Vector2(radius, radius)
-			art_rect.size = Vector2(radius * 2.0, radius * 2.0)
+			art_rect.position = pos - art_size * 0.5
+			art_rect.size = art_size
+			art_rect.pivot_offset = art_size * 0.5
+			art_rect.scale = Vector2(hover_scale, hover_scale)
 			art_rect.modulate = Color.WHITE if unlocked else Color(0.30, 0.30, 0.38, 0.46)
 
 		if _planet_emoji_labels.has(pid):
 			var emo: Label = _planet_emoji_labels[pid] as Label
 			emo.position = pos - Vector2(17.0, 19.0)
+			emo.pivot_offset = emo.size * 0.5
+			emo.scale = Vector2(hover_scale, hover_scale)
 			emo.visible = unlocked and texture == null
 
 		if _planet_name_labels.has(pid):
 			var nl: Label = _planet_name_labels[pid] as Label
 			var pdata: Dictionary = GameData.PLANET_DATA[pid]
 			var col: Color = pdata["color"]
-			nl.position = Vector2(pos.x - 70.0, pos.y + radius + 4.0)
+			nl.size = Vector2(150.0, 22.0)
+			nl.position = Vector2(pos.x - nl.size.x * 0.5, pos.y + _planet_label_y_offset(pid, radius))
 			nl.add_theme_color_override("font_color",
 				col if unlocked else Color(0.28, 0.28, 0.38))
 
 		if _planet_buttons.has(pid):
 			var btn: Button = _planet_buttons[pid] as Button
-			var r: float = _planet_radius() * 2.2
-			btn.position = pos - Vector2(r * 0.5, r * 0.5)
-			btn.size = Vector2(r, r)
+			var hit_size: float = _planet_radius() * PLANET_HOVER_SCALE * 2.2
+			btn.position = pos - Vector2(hit_size * 0.5, hit_size * 0.5)
+			btn.size = Vector2(hit_size, hit_size)
 
 func _planet_position(pid: String) -> Vector2:
 	var map_rect: Rect2 = _map_rect()
@@ -372,6 +403,80 @@ func _planet_radius(viewport_size: Vector2 = Vector2.ZERO) -> float:
 	if _is_compact_layout(viewport_size):
 		return clampf(viewport_size.x / 14.0, 30.0, 46.0)
 	return PLANET_RADIUS
+
+func _planet_visual_radius(pid: String) -> float:
+	return _planet_radius() * _planet_hover_scale(pid)
+
+func _planet_art_rect(pid: String, center: Vector2, display_radius: float) -> Rect2:
+	var art_size: Vector2 = _planet_art_display_size(pid, display_radius)
+	return Rect2(center - art_size * 0.5, art_size)
+
+func _planet_art_display_size(pid: String, display_radius: float) -> Vector2:
+	var region: Rect2 = _planet_art_region(pid)
+	var max_side: float = max(region.size.x, region.size.y)
+	if max_side <= 0.001:
+		return Vector2(display_radius * 2.0, display_radius * 2.0)
+	return region.size * ((display_radius * 2.0) / max_side)
+
+func _planet_label_y_offset(pid: String, radius: float) -> float:
+	var texture: Texture2D = _get_planet_art(pid)
+	if texture == null:
+		return radius + 14.0
+	return _planet_art_display_size(pid, radius).y * 0.5 + 14.0
+
+func _planet_art_region(pid: String) -> Rect2:
+	if PLANET_ART_REGIONS.has(pid):
+		return PLANET_ART_REGIONS[pid] as Rect2
+	var texture: Texture2D = _get_planet_art(pid)
+	if texture != null:
+		return Rect2(Vector2.ZERO, texture.get_size())
+	return Rect2(Vector2.ZERO, Vector2(128.0, 128.0))
+
+func _get_planet_display_texture(pid: String) -> Texture2D:
+	if _planet_display_texture_cache.has(pid):
+		return _planet_display_texture_cache[pid] as Texture2D
+	var texture: Texture2D = _get_planet_art(pid)
+	if texture == null:
+		return null
+	var atlas: AtlasTexture = AtlasTexture.new()
+	atlas.atlas = texture
+	atlas.region = _planet_art_region(pid)
+	_planet_display_texture_cache[pid] = atlas
+	return atlas
+
+func _planet_hover_scale(pid: String) -> float:
+	return float(_planet_hover_scales.get(pid, 1.0))
+
+func _target_planet_hover_scale(pid: String) -> float:
+	if _hovered_planet == pid and GameData.is_planet_unlocked(pid):
+		return PLANET_HOVER_SCALE
+	return 1.0
+
+func _update_hover_zoom(delta: float) -> bool:
+	var changed := false
+	var amount: float = clampf(delta * PLANET_HOVER_SPEED, 0.0, 1.0)
+	for pid: String in GameData.PLANET_ORDER:
+		var current_scale: float = float(_planet_hover_scales.get(pid, 1.0))
+		var target_scale: float = _target_planet_hover_scale(pid)
+		var next_scale: float = lerpf(current_scale, target_scale, amount)
+		if absf(next_scale - target_scale) <= PLANET_HOVER_EPSILON:
+			next_scale = target_scale
+		if absf(next_scale - current_scale) > 0.0001:
+			_planet_hover_scales[pid] = next_scale
+			changed = true
+	return changed
+
+func _set_hovered_planet(pid: String) -> void:
+	if _hovered_planet == pid:
+		return
+	_hovered_planet = pid
+	queue_redraw()
+
+func _clear_hovered_planet(pid: String) -> void:
+	if _hovered_planet != pid:
+		return
+	_hovered_planet = ""
+	queue_redraw()
 
 func _wide_panel_width(viewport_size: Vector2) -> float:
 	return clampf(viewport_size.x * PANEL_WIDTH_RATIO, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH)
@@ -434,14 +539,115 @@ func _build_mission_panel(ui: CanvasLayer) -> void:
 	_panel_vbox.add_theme_constant_override("separation", 10)
 	margin.add_child(_panel_vbox)
 
+func _apply_mission_panel_theme(planet_col: Color) -> void:
+	if _mission_panel == null:
+		return
+	var bg: Color = _theme_mix(Color(0.025, 0.030, 0.055, 0.96), planet_col, 0.16, 0.96)
+	var border: Color = _theme_mix(Color(0.18, 0.22, 0.32, 0.70), planet_col, 0.72, 0.90)
+	_mission_panel.add_theme_stylebox_override("panel", _make_theme_style(bg, border, 2, 8))
+
+func _theme_mix(base: Color, tint: Color, amount: float, alpha: float = -1.0) -> Color:
+	var mixed: Color = base.lerp(tint, amount)
+	if alpha >= 0.0:
+		mixed.a = alpha
+	return mixed
+
+func _make_theme_style(fill: Color, border: Color, border_width: int = 1, radius: int = 6) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.border_color = border
+	style.border_width_top = border_width
+	style.border_width_bottom = border_width
+	style.border_width_left = border_width
+	style.border_width_right = border_width
+	style.set_corner_radius_all(radius)
+	return style
+
+func _mission_row_style(planet_col: Color, state: String, is_boss: bool) -> StyleBoxFlat:
+	var accent: Color = _theme_mix(planet_col, Color.WHITE, 0.12) if is_boss else planet_col
+	match state:
+		"active":
+			return _make_theme_style(
+				_theme_mix(Color(0.045, 0.050, 0.085, 0.94), accent, 0.46, 0.94),
+				Color(accent.r, accent.g, accent.b, 0.96),
+				2, 7
+			)
+		"completed":
+			return _make_theme_style(
+				_theme_mix(Color(0.035, 0.052, 0.070, 0.88), accent, 0.30, 0.88),
+				_theme_mix(Color(0.16, 0.22, 0.28, 0.64), accent, 0.72, 0.80),
+				1, 7
+			)
+		_:
+			return _make_theme_style(
+				_theme_mix(Color(0.035, 0.038, 0.055, 0.78), accent, 0.18, 0.78),
+				_theme_mix(Color(0.10, 0.11, 0.17, 0.50), accent, 0.62, 0.58),
+				1, 7
+			)
+
+func _badge_style(planet_col: Color, state: String, is_boss: bool) -> StyleBoxFlat:
+	var accent: Color = _theme_mix(planet_col, Color.WHITE, 0.12) if is_boss else planet_col
+	match state:
+		"active":
+			return _make_theme_style(
+				_theme_mix(Color(0.045, 0.050, 0.085, 0.96), accent, 0.52, 0.96),
+				Color(accent.r, accent.g, accent.b, 0.98),
+				2, 6
+			)
+		"completed":
+			return _make_theme_style(
+				_theme_mix(Color(0.030, 0.085, 0.080, 0.90), accent, 0.34, 0.90),
+				_theme_mix(Color(0.18, 0.62, 0.42, 0.75), accent, 0.54, 0.82),
+				1, 6
+			)
+		_:
+			return _make_theme_style(
+				_theme_mix(Color(0.055, 0.058, 0.078, 0.88), accent, 0.16, 0.88),
+				_theme_mix(Color(0.16, 0.17, 0.24, 0.62), accent, 0.45, 0.68),
+				1, 6
+			)
+
+func _apply_button_theme(btn: Button, accent: Color, enabled: bool) -> void:
+	if not enabled:
+		var disabled_fill: Color = _theme_mix(Color(0.045, 0.048, 0.064, 0.84), accent, 0.18, 0.84)
+		var disabled_border: Color = _theme_mix(Color(0.12, 0.13, 0.18, 0.56), accent, 0.58, 0.62)
+		var disabled_style: StyleBoxFlat = _make_theme_style(disabled_fill, disabled_border, 1, 6)
+		btn.add_theme_stylebox_override("normal", disabled_style)
+		btn.add_theme_stylebox_override("hover", disabled_style)
+		btn.add_theme_stylebox_override("pressed", disabled_style)
+		btn.add_theme_stylebox_override("disabled", disabled_style)
+		btn.add_theme_color_override("font_disabled_color", _theme_mix(Color(0.38, 0.40, 0.50), accent, 0.38))
+		btn.add_theme_color_override("font_color", _theme_mix(Color(0.38, 0.40, 0.50), accent, 0.38))
+		return
+
+	btn.add_theme_stylebox_override("normal", _make_theme_style(
+		_theme_mix(Color(0.055, 0.064, 0.095, 0.96), accent, 0.48, 0.96),
+		Color(accent.r, accent.g, accent.b, 0.92),
+		2, 6
+	))
+	btn.add_theme_stylebox_override("hover", _make_theme_style(
+		_theme_mix(Color(0.070, 0.078, 0.115, 0.98), accent, 0.64, 0.98),
+		Color(accent.r, accent.g, accent.b, 1.0),
+		2, 6
+	))
+	btn.add_theme_stylebox_override("pressed", _make_theme_style(
+		_theme_mix(Color(0.030, 0.036, 0.060, 0.98), accent, 0.76, 0.98),
+		Color(accent.r, accent.g, accent.b, 1.0),
+		2, 6
+	))
+	btn.add_theme_color_override("font_color", _theme_mix(Color(0.86, 0.90, 1.00), accent, 0.32))
+	btn.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+	btn.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 1.0))
+
 # ── Planet selection ──────────────────────────────────────────
 
 func _select_planet(planet_id: String) -> void:
+	var animate_panel: bool = not _selected.is_empty() and _selected != planet_id
 	_selected = planet_id
 	queue_redraw()
-	_refresh_panel()
+	_refresh_panel(animate_panel)
 
-func _refresh_panel() -> void:
+func _refresh_panel(animate_change: bool = false) -> void:
 	for c: Node in _panel_vbox.get_children():
 		c.queue_free()
 
@@ -451,6 +657,7 @@ func _refresh_panel() -> void:
 	var pdata: Dictionary = GameData.PLANET_DATA.get(_selected, {})
 	var col: Color = pdata.get("color", Color.WHITE)
 	var done: int  = GameData.missions_done.get(_selected, 0)
+	_apply_mission_panel_theme(col)
 
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 14)
@@ -491,7 +698,7 @@ func _refresh_panel() -> void:
 	var desc_lbl := Label.new()
 	desc_lbl.text = pdata.get("desc", "")
 	desc_lbl.add_theme_font_size_override("font_size", 13)
-	desc_lbl.add_theme_color_override("font_color", Color(0.52, 0.55, 0.68))
+	desc_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.52, 0.55, 0.68), col, 0.28))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header_text.add_child(desc_lbl)
 
@@ -500,7 +707,7 @@ func _refresh_panel() -> void:
 	var sec_lbl := Label.new()
 	sec_lbl.text = "MISE"
 	sec_lbl.add_theme_font_size_override("font_size", 15)
-	sec_lbl.add_theme_color_override("font_color", Color(0.48, 0.52, 0.65))
+	sec_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.48, 0.52, 0.65), col, 0.58))
 	_panel_vbox.add_child(sec_lbl)
 
 	for m: int in 4:
@@ -512,10 +719,10 @@ func _refresh_panel() -> void:
 	var sum_lbl := Label.new()
 	if done >= 4:
 		sum_lbl.text = "✓  Planeta splněna"
-		sum_lbl.add_theme_color_override("font_color", Color(0.28, 0.88, 0.40))
+		sum_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.28, 0.88, 0.40), col, 0.22))
 	else:
 		sum_lbl.text = "Splněno: %d / 4 misí" % done
-		sum_lbl.add_theme_color_override("font_color", Color(0.45, 0.50, 0.62))
+		sum_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.45, 0.50, 0.62), col, 0.35))
 	sum_lbl.add_theme_font_size_override("font_size", 14)
 	_panel_vbox.add_child(sum_lbl)
 
@@ -524,17 +731,65 @@ func _refresh_panel() -> void:
 		var runs_lbl := Label.new()
 		runs_lbl.text = "Pokusy na planetě: %d" % runs
 		runs_lbl.add_theme_font_size_override("font_size", 13)
-		runs_lbl.add_theme_color_override("font_color", Color(0.35, 0.38, 0.50))
+		runs_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.35, 0.38, 0.50), col, 0.32))
 		_panel_vbox.add_child(runs_lbl)
 
+	if animate_change:
+		_animate_mission_panel_change()
+	else:
+		_reset_mission_panel_animation()
+
+func _animate_mission_panel_change() -> void:
+	if _mission_panel == null or _panel_vbox == null:
+		return
+	_reset_mission_panel_animation()
+	_mission_panel.pivot_offset = _mission_panel.size * 0.5
+	_mission_panel.scale = Vector2(MISSION_PANEL_CHANGE_SCALE, MISSION_PANEL_CHANGE_SCALE)
+	_mission_panel.modulate = Color(1.0, 1.0, 1.0, 0.86)
+	_panel_vbox.modulate = Color(1.0, 1.0, 1.0, 0.0)
+
+	_mission_panel_tween = create_tween()
+	_mission_panel_tween.set_parallel(true)
+	_mission_panel_tween.set_trans(Tween.TRANS_QUAD)
+	_mission_panel_tween.set_ease(Tween.EASE_OUT)
+	_mission_panel_tween.tween_property(_mission_panel, "scale", Vector2.ONE, MISSION_PANEL_CHANGE_DURATION)
+	_mission_panel_tween.tween_property(_mission_panel, "modulate", Color.WHITE, MISSION_PANEL_CHANGE_DURATION)
+	_mission_panel_tween.tween_property(_panel_vbox, "modulate", Color.WHITE, MISSION_PANEL_CHANGE_DURATION * 0.85)
+
+func _reset_mission_panel_animation() -> void:
+	if _mission_panel_tween != null:
+		if _mission_panel_tween.is_valid():
+			_mission_panel_tween.kill()
+		_mission_panel_tween = null
+	if _mission_panel != null:
+		_mission_panel.scale = Vector2.ONE
+		_mission_panel.modulate = Color.WHITE
+	if _panel_vbox != null:
+		_panel_vbox.modulate = Color.WHITE
+
 func _make_mission_row(m: int, done: int, planet_col: Color) -> Control:
+	var is_boss: bool = (m == 3)
+	var state: String = "locked"
+	if m < done:
+		state = "completed"
+	elif m == done:
+		state = "active"
+
+	var row_panel := PanelContainer.new()
+	row_panel.custom_minimum_size = Vector2(0, 56)
+	row_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row_panel.add_theme_stylebox_override("panel", _mission_row_style(planet_col, state, is_boss))
+
 	var row := HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, 52)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 10)
+	row_panel.add_child(row)
 
 	# Status badge
 	var badge := PanelContainer.new()
 	badge.custom_minimum_size = Vector2(46, 46)
+	badge.add_theme_stylebox_override("panel", _badge_style(planet_col, state, is_boss))
 	row.add_child(badge)
 	var badge_lbl := Label.new()
 	badge_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -563,37 +818,36 @@ func _make_mission_row(m: int, done: int, planet_col: Color) -> Control:
 	btn.add_theme_font_size_override("font_size", 14)
 	row.add_child(btn)
 
-	var is_boss: bool = (m == 3)
-
 	if m < done:
 		# Completed
 		badge_lbl.text = "✓"
-		badge_lbl.add_theme_color_override("font_color", Color(0.20, 0.88, 0.38))
-		name_lbl.add_theme_color_override("font_color", Color(0.55, 0.68, 0.55))
-		diff_lbl.add_theme_color_override("font_color", Color(0.28, 0.48, 0.28))
+		badge_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.20, 0.88, 0.38), planet_col, 0.55))
+		name_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.64, 0.72, 0.82), planet_col, 0.52))
+		diff_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.34, 0.48, 0.56), planet_col, 0.55))
 		btn.text = "↩ Opakovat"
-		btn.modulate = Color(0.50, 0.55, 0.50)
+		_apply_button_theme(btn, planet_col, true)
 		btn.pressed.connect(func() -> void: _launch(m))
 	elif m == done:
 		# Next available mission
-		var mc: Color = Color(1.0, 0.65, 0.05) if is_boss else planet_col
+		var mc: Color = _theme_mix(planet_col, Color.WHITE, 0.12) if is_boss else planet_col
 		badge_lbl.text = "⚡" if is_boss else "▶"
 		badge_lbl.add_theme_color_override("font_color", mc)
-		name_lbl.add_theme_color_override("font_color", Color(0.92, 0.94, 1.00))
-		diff_lbl.add_theme_color_override("font_color", Color(0.52, 0.58, 0.72))
+		name_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.92, 0.94, 1.00), planet_col, 0.16))
+		diff_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.52, 0.58, 0.72), planet_col, 0.36))
 		btn.text = "🚀 ZAHÁJIT"
-		btn.modulate = mc
+		_apply_button_theme(btn, mc, true)
 		btn.pressed.connect(func() -> void: _launch(m))
 	else:
 		# Locked
 		badge_lbl.text = "🔒"
-		name_lbl.add_theme_color_override("font_color", Color(0.30, 0.32, 0.42))
-		diff_lbl.add_theme_color_override("font_color", Color(0.22, 0.24, 0.32))
+		badge_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.34, 0.36, 0.48), planet_col, 0.42))
+		name_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.30, 0.32, 0.42), planet_col, 0.28))
+		diff_lbl.add_theme_color_override("font_color", _theme_mix(Color(0.22, 0.24, 0.32), planet_col, 0.30))
 		btn.text = "Zamčeno"
 		btn.disabled = true
-		btn.modulate = Color(0.35, 0.35, 0.42)
+		_apply_button_theme(btn, planet_col, false)
 
-	return row
+	return row_panel
 
 func _launch(mission_idx: int) -> void:
 	GameData.current_planet  = _selected
