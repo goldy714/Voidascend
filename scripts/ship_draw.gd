@@ -5,8 +5,10 @@ const CELL: float    = 20.0
 const SLOT_HALF: float = 8.5
 const MODULE_ART_SIZE: float = 16.0
 const MODULE_ART_DIR: String = "res://assets/modules"
+const SHIP_ART_DIR: String = "res://assets/ships"
 
 static var _module_art_cache: Dictionary = {}
+static var _ship_art_cache: Dictionary = {}
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -65,7 +67,17 @@ static func _draw_hull(canvas: CanvasItem, ship_id: String) -> void:
 		"destroyer": _draw_hull_destroyer(canvas)
 		_:           _draw_hull_scout(canvas)
 
+static func _draw_ship_art(canvas: CanvasItem, ship_id: String) -> bool:
+	var texture: Texture2D = _get_ship_art(ship_id)
+	if texture == null:
+		return false
+	var texture_size: Vector2 = texture.get_size()
+	canvas.draw_texture_rect(texture, Rect2(texture_size * -0.5, texture_size), false)
+	return true
+
 static func _draw_hull_scout(canvas: CanvasItem) -> void:
+	if _draw_ship_art(canvas, "scout"):
+		return
 	var fill   := Color(0.07, 0.09, 0.18, 0.93)
 	var line   := Color(0.30, 0.55, 0.90, 0.95)
 	var accent := Color(0.18, 0.38, 0.70, 0.60)
@@ -213,21 +225,80 @@ static func _draw_structural(canvas: CanvasItem, pos: Vector2) -> void:
 
 # ── Module art textures ───────────────────────────────────────────────────────
 
-static func _get_module_art(module_id: String) -> Texture2D:
-	if _module_art_cache.has(module_id):
-		return _module_art_cache[module_id] as Texture2D
+static func _get_ship_art(ship_id: String) -> Texture2D:
+	var path: String = "%s/ship_%s.png" % [SHIP_ART_DIR, ship_id]
+	if _ship_art_cache.has(path):
+		return _ship_art_cache[path] as Texture2D
 
-	var path: String = "%s/%s.png" % [MODULE_ART_DIR, module_id]
 	var texture: Texture2D = null
 	if ResourceLoader.exists(path, "Texture2D"):
 		texture = load(path) as Texture2D
-	_module_art_cache[module_id] = texture
+	_ship_art_cache[path] = texture
 	return texture
 
-static func _draw_module_art(canvas: CanvasItem, pos: Vector2, texture: Texture2D) -> void:
+static func _get_module_art(module_id: String) -> Texture2D:
+	return _get_module_art_at_path("%s/%s.png" % [MODULE_ART_DIR, module_id])
+
+static func _get_module_layer_art(module_id: String, layer: String) -> Texture2D:
+	return _get_module_art_at_path("%s/%s_%s.png" % [MODULE_ART_DIR, module_id, layer])
+
+static func _get_module_art_at_path(path: String) -> Texture2D:
+	if _module_art_cache.has(path):
+		return _module_art_cache[path] as Texture2D
+
+	var texture: Texture2D = null
+	if ResourceLoader.exists(path, "Texture2D"):
+		texture = load(path) as Texture2D
+	_module_art_cache[path] = texture
+	return texture
+
+static func _draw_module_art(canvas: CanvasItem, pos: Vector2,
+		texture: Texture2D, rotation: float = 0.0) -> void:
 	var half: float = MODULE_ART_SIZE * 0.5
-	var rect := Rect2(pos - Vector2(half, half), Vector2(MODULE_ART_SIZE, MODULE_ART_SIZE))
-	canvas.draw_texture_rect(texture, rect, false)
+	if is_zero_approx(rotation):
+		var rect := Rect2(pos - Vector2(half, half), Vector2(MODULE_ART_SIZE, MODULE_ART_SIZE))
+		canvas.draw_texture_rect(texture, rect, false)
+		return
+
+	var points := PackedVector2Array([
+		Vector2(-half, -half),
+		Vector2(half, -half),
+		Vector2(half, half),
+		Vector2(-half, half),
+	])
+	var transform := Transform2D(rotation, Vector2.ZERO)
+	for i: int in points.size():
+		points[i] = transform * points[i] + pos
+
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 0.0),
+		Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0),
+		Vector2(0.0, 1.0),
+	])
+	canvas.draw_polygon(points, PackedColorArray([
+		Color.WHITE,
+		Color.WHITE,
+		Color.WHITE,
+		Color.WHITE,
+	]), uvs, texture)
+
+static func _draw_layered_module_art(canvas: CanvasItem, pos: Vector2,
+		module_id: String, aim: Vector2) -> bool:
+	var base_texture: Texture2D = _get_module_layer_art(module_id, "base")
+	var top_texture: Texture2D = _get_module_layer_art(module_id, "top")
+	if base_texture == null and top_texture == null:
+		return false
+	if base_texture != null:
+		_draw_module_art(canvas, pos, base_texture)
+	if top_texture != null:
+		_draw_module_art(canvas, pos, top_texture, _module_top_rotation(aim))
+	return true
+
+static func _module_top_rotation(aim: Vector2) -> float:
+	if aim.length_squared() <= 0.0001:
+		return 0.0
+	return aim.normalized().angle() - Vector2.UP.angle()
 
 # ── Module dispatcher ─────────────────────────────────────────────────────────
 
@@ -236,6 +307,9 @@ static func _draw_module(canvas: CanvasItem, pos: Vector2,
 	var texture: Texture2D = _get_module_art(module_id)
 	if texture != null:
 		_draw_module_art(canvas, pos, texture)
+		return
+
+	if _draw_layered_module_art(canvas, pos, module_id, aim):
 		return
 
 	match module_id:

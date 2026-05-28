@@ -1,8 +1,114 @@
 # Devlog — Voidascend
 
-Tento soubor zaznamenává vše, co bylo vyvinuto. Záznamy se pouze přidávají, nikdy nemění ani nemažou.
+Tento soubor zaznamenává vše, co bylo vyvinuto. Nové záznamy se přidávají pro nové funkční oblasti; navazující změny ve stejné oblasti se slučují do nejnovějšího relevantního záznamu.
 
 ---
+
+## 2026-05-28 — Voidascend: Crosshair cursor v misi
+
+- Během gameplay mise se místo starship cursoru používá nový menší PixelLab crosshair v poloviční velikosti; po odchodu z mise se cursor vrátí zpět na loď.
+- Starship cursor mimo misi nechává krátký jemný afterimage trail za lodí; crosshair cursor v misi zůstává čistý bez trailu.
+
+## 2026-05-28 — Voidascend: Full-rotation starship cursor
+
+- Starship cursor zůstává přichycený na skutečné pozici myši a plynule se plně otáčí podle směru pohybu bez zrcadlení nebo omezení na malý tilt.
+
+## 2026-05-28 — Voidascend: Symetrický starship cursor
+
+- Cursor lodi má nový symetričtější PixelLab asset s čitelným hrotem vlevo nahoře a diagonální siluetou vhodnou pro pointer.
+
+## 2026-05-27 — Voidascend: Jemnější tilt starship cursoru
+
+- Cursor lodi už se neotáčí ocasem ani neflipuje; drží pointer pose a jen se mírně naklání podle směru pohybu myši.
+
+## 2026-05-27 — Voidascend: Oprava natočení zrcadleného cursoru
+
+- Zrcadlení starship cursoru při pohybu doprava už nemění výpočet úhlu natočení, takže diagonální pohyb doprava dolů nepřeklápí loď do směru dolů.
+
+## 2026-05-26 — Voidascend: Menší a zrcadlený starship cursor
+
+- Starship cursor je o něco menší a při pohybu doprava se jeho obrázek zrcadlí, aby směr letu působil přirozeněji.
+
+## 2026-05-26 — Voidascend: Plynulejší starship cursor
+
+- Starship cursor teď krátce dohání skutečnou myš místo okamžitého skoku na její pozici.
+- Zatáčení je omezené rychlostí, takže prudké změny směru působí širším obloukem a méně trhaně.
+
+## 2026-05-26 — Voidascend: Oprava směru starship cursoru
+
+- Dynamický cursor lodi už se natáčí špičkou po směru pohybu místo ocasem dopředu.
+
+## 2026-05-26 — Voidascend: Dynamický starship cursor
+
+- Cursor lodi se vykresluje jako vrchní overlay a plynule se natáčí podle směru pohybu myši, zatímco klikací bod zůstává na špičce.
+
+## 2026-05-26 — Voidascend: Větší starship cursor
+
+- PixelLab kurzor lodi je větší a natočený špičkou do levého horního rohu, aby působil čitelněji jako pointer.
+
+## 2026-05-26 — Voidascend: PixelLab starship cursor
+
+- Hra používá nový PixelLab kurzor ve tvaru malé top-down lodi se špičkou jako pointer.
+- Cursor se nastavuje globálně přes autoload a drží stejný vzhled i nad tlačítky a drag/drop prvky.
+
+## 2026-05-26 — Voidascend: Biome styl gameplay misí
+
+- Během běžící mise se pozadí a ambientní částice jemně mění podle vybrané planety: led, láva, toxické spóry, stínové moty nebo stanice.
+- Seznam misí na mapě zůstává čistý; biome motiv patří přímo do gameplay scény.
+
+## 2026-05-26 — Voidascend: Animace panelu misí
+
+- Panel misí při změně vybrané planety rychle přejde jemným fade/scale efektem, takže změna obsahu působí plynuleji.
+
+## 2026-05-26 — Voidascend: Přesnější centrování planet nad popisky
+
+- Mapa planet používá pro zobrazení oříznuté viditelné regiony PNG assetů, takže transparentní okraje už neposouvají planetu vůči názvu pod ní.
+
+## 2026-05-26 — Voidascend: Zarovnání hover zoomu planet
+
+- Planetární assety se při hover zoomu škálují kolem pevného pivotu a mapa kompenzuje vizuální střed PNG, takže planety zůstávají zarovnané s popisky.
+
+## 2026-05-26 — Voidascend: Plynulejší hover zoom planet
+
+- Hover na mapě planet je výraznější a rychle plynule dorůstá kolem středu planety, zatímco popisky a progress dots zůstávají stabilní.
+
+## 2026-05-26 — Voidascend: Výraznější planetární barvy misí
+
+- Řádky misí, stavové badge, texty a akční tlačítka v panelu misí výrazněji přebírají barvu vybrané planety i u splněných a zamčených stavů.
+
+## 2026-05-26 — Voidascend: Hover efekt planet
+
+- Planety na mapě se při najetí kurzorem jemně zvětší a už nezobrazují systémový tooltip s názvem planety.
+
+## 2026-05-26 — Voidascend: Scrollovatelný vývojářský přehled
+
+- Vývojářský přehled se přizpůsobuje velikosti obrazovky a obsah s architekturou i devlogem se posouvá uvnitř panelu místo přetékání mimo viewport.
+
+## 2026-05-26 — Voidascend: Planetární motiv panelu misí
+
+- Detail misí na mapě přebírá barvy vybrané planety pro pozadí panelu, řádky misí, badge a akční tlačítka.
+- Aktivní mise, splněné mise i zamčené položky zůstávají stavově odlišené, ale vizuálně ladí s aktuální planetou.
+
+## 2026-05-26 — Voidascend: PixelLab planety a responsivní mapa
+
+- Mapa planet používá nové PixelLab PNG assety pro Glacius, Infernus, Toxar, Shadowveil a Void Station místo jednoduchých kruhů.
+- Pozice planet, popisků a click zón se přepočítávají podle velikosti obrazovky; na užších viewports se panel misí přesune dolů a planety se zmenší, aby zůstaly na mapě čitelné.
+
+## 2026-05-26 — Voidascend: PixelLab assety lodi a modulů
+
+- Scout loď má nový PixelLab top-down trup s prázdnou 3×3 montážní plochou; kreslení používá nový PNG trup pod stávajícím module gridem, takže pozice slotů zůstávají zachované.
+- Modulové assety jsou sjednocené od základních po pokročilé zbraně, štíty, motory, cargo a speciály; směrové moduly drží severní orientaci a zbraně mají čitelný kanón místo paprsku.
+- Kreslení dává přednost novým jednovrstvým PNG assetům, ale dál zachovává podporu starších vrstvených i procedurálních fallbacků.
+
+## 2026-05-26 — Voidascend: Doladění přetahování v hangáru
+
+- Náhled přetahovaného modulu kreslí samotný modul přímo uprostřed čtverce, takže už neujíždí do rohu.
+- Slot lodi pod kurzorem se při přetahování zvýrazní jako aktivní drop target.
+
+## 2026-05-26 — Voidascend: Oprava přetahování v hangáru
+
+- Přetahovaný modul je nově vycentrovaný přímo pod kurzorem při přesunu z inventáře i mezi sloty lodi.
+- Náhled při přetahování už nezobrazuje druhý posunutý čtverec uvnitř ikony.
 
 ## 2026-05-25 — Voidascend: Dvoudílné modulové dlaždice
 

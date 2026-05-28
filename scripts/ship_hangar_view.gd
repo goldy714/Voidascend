@@ -9,7 +9,7 @@ const MAX_SCALE: float = 5.8
 const MIN_SCALE: float = 2.8
 const FIT_MARGIN: Vector2 = Vector2(84.0, 120.0)
 const HULL_BOUNDS := {
-	"scout": Rect2(Vector2(-58.0, -64.0), Vector2(116.0, 124.0)),
+	"scout": Rect2(Vector2(-64.0, -64.0), Vector2(128.0, 128.0)),
 	"destroyer": Rect2(Vector2(-58.0, -66.0), Vector2(116.0, 130.0)),
 }
 

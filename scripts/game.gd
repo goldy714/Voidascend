@@ -29,6 +29,7 @@ const TIPS: Array = [
 ]
 
 func _ready() -> void:
+	CursorManager.use_crosshair_cursor()
 	_spawn_background()
 	GameData.start_run()
 	_spawn_player()
@@ -36,6 +37,9 @@ func _ready() -> void:
 	_wave_spawner.wave_completed.connect(_on_wave_completed)
 	_wave_spawner.all_waves_completed.connect(_on_victory)
 	_wave_spawner.start_waves()
+
+func _exit_tree() -> void:
+	CursorManager.use_starship_cursor()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and not event.is_echo() and not _game_over:
@@ -59,7 +63,11 @@ func _process(_delta: float) -> void:
 
 # ── Background ────────────────────────────────────────────────────
 func _spawn_background() -> void:
-	add_child(ScrollingBackground.new())
+	var bg: Node2D = ScrollingBackground.new()
+	var pdata: Dictionary = GameData.PLANET_DATA.get(GameData.current_planet, {})
+	var planet_col: Color = pdata.get("color", Color(0.30, 0.70, 1.00))
+	bg.call("configure", GameData.current_planet, GameData.current_mission, planet_col)
+	add_child(bg)
 
 # ── Player ────────────────────────────────────────────────────────
 func _spawn_player() -> void:

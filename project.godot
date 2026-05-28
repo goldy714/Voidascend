@@ -22,6 +22,7 @@ config/features=PackedStringArray("4.6", "GL Compatibility")
 
 GameData="*res://scripts/autoloads/game_data.gd"
 SettingsMenu="*res://scripts/autoloads/settings_menu.gd"
+CursorManager="*res://scripts/autoloads/cursor_manager.gd"
 DevWindow="*res://scripts/autoloads/dev_window.gd"
 
 [display]

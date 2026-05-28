@@ -358,8 +358,9 @@ def make_planet_glacius():
 
 print("Generating VoidAscent assets...")
 
-# Ships (scale ×2 → 128×128)
-save(upscale(make_scout(), 2),    "ships", "ship_scout.png")
+# Scout is PixelLab-authored. Keep it when regenerating assets;
+# the procedural sprite is only a fallback for missing files.
+save_if_missing(upscale(make_scout(), 2),    "ships", "ship_scout.png")
 save(upscale(make_destroyer(), 2),"ships", "ship_destroyer.png")
 
 # Enemies are PixelLab-authored PNGs. Keep them when regenerating assets;
@@ -383,7 +384,8 @@ save(upscale(make_mod_collector(), 2), "modules", "mod_collector.png")
 save(upscale(make_mod_cargo(),     2), "modules", "mod_cargo.png")
 save(upscale(make_mod_special(),   2), "modules", "mod_special.png")
 
-# Planet
-save(make_planet_glacius(), "fx", "planet_glacius.png")
+# Planet assets are PixelLab-authored. Keep them when regenerating assets;
+# the procedural Glacius sprite is only a fallback for missing files.
+save_if_missing(make_planet_glacius(), "fx", "planet_glacius.png")
 
 print("Done! All assets written to assets/")
