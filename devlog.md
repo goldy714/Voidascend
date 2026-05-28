@@ -1,6 +1,6 @@
 # Devlog — Voidascend
 
-Tento soubor zaznamenává vše, co bylo vyvinuto. Záznamy se pouze přidávají, nikdy nemění ani nemažou.
+Tento soubor zaznamenává vše, co bylo vyvinuto. Nové záznamy se přidávají pro nové funkční oblasti; navazující změny ve stejné oblasti se slučují do nejnovějšího relevantního záznamu.
 
 ---
 

@@ -17,4 +17,5 @@ Tento soubor obsahuje stabilní instrukce pro AI agenty pracující na projektu.
 ## Dokumentace změn
 
 1. **Každá větší dokončená změna:** zapiš do `devlog.md` krátký funkční záznam. Stačí 1–2 odrážky o tom, co se změnilo pro uživatele nebo hru; nepiš cesty k souborům ani technické detaily, pokud nejsou nezbytné.
-2. **Po dokončení úkolu:** zkontroluj, že větší změny mají záznam v `devlog.md`, a v `coordination.md` vynuluj sekci "Aktuální stav".
+2. **Před přidáním nového záznamu:** zkontroluj nejnovější záznam v `devlog.md`. Pokud nová změna navazuje na stejnou funkční oblast nebo téma, uprav tento nejnovější záznam místo přidání dalšího samostatného záznamu.
+3. **Po dokončení úkolu:** zkontroluj, že větší změny mají záznam v `devlog.md`, a v `coordination.md` vynuluj sekci "Aktuální stav".
