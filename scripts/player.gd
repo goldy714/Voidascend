@@ -17,6 +17,7 @@ const ORBITAL_SEQUENCE_LABELS: Array[String] = ["↑", "←", "↓", "→"]
 const DASH_DISTANCE: float = 160.0
 const DASH_DURATION: float = 0.16
 const DASH_AFTERGLOW: float = 0.10
+const PLAYER_HITBOX_RADIUS: float = 28.0
 
 # ── Runtime stats (set from GameData in _ready) ─────────────────
 var _stats: Dictionary = {}
@@ -72,7 +73,7 @@ func _ready() -> void:
 	collision_layer = 1   # layer: player
 	collision_mask  = 0   # player CharacterBody2D doesn't need to push anything
 	var shape := CircleShape2D.new()
-	shape.radius = 20.0
+	shape.radius = PLAYER_HITBOX_RADIUS
 	var cs := CollisionShape2D.new()
 	cs.shape = shape
 	add_child(cs)
