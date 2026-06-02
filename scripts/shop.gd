@@ -1,5 +1,7 @@
 extends Node2D
 
+const ResourceUI = preload("res://scripts/resource_ui.gd")
+
 const CATEGORIES := ["all", "weapon", "shield", "engine", "collector", "cargo", "special"]
 const CAT_NAMES  := {
 	"all": "Vše", "weapon": "Zbraně", "shield": "Štíty",
@@ -56,16 +58,15 @@ func _build_ui() -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_hbox.add_child(title)
 
-	_metal_lbl = Label.new()
-	_metal_lbl.text = "⚙ %d" % GameData.metal_scrap
-	_metal_lbl.add_theme_font_size_override("font_size", 17)
-	top_hbox.add_child(_metal_lbl)
+	var metal_counter: Dictionary = ResourceUI.make_counter(
+		ResourceUI.METAL, GameData.metal_scrap, 17, 24)
+	_metal_lbl = metal_counter["label"] as Label
+	top_hbox.add_child(metal_counter["row"] as HBoxContainer)
 
-	_crystal_lbl = Label.new()
-	_crystal_lbl.text = "  💎 %d" % GameData.void_crystals
-	_crystal_lbl.add_theme_font_size_override("font_size", 17)
-	_crystal_lbl.add_theme_color_override("font_color", Color(0.25, 0.92, 1.00))
-	top_hbox.add_child(_crystal_lbl)
+	var crystal_counter: Dictionary = ResourceUI.make_counter(
+		ResourceUI.CRYSTAL, GameData.void_crystals, 17, 24)
+	_crystal_lbl = crystal_counter["label"] as Label
+	top_hbox.add_child(crystal_counter["row"] as HBoxContainer)
 
 	# ── Category filter buttons ───────────────────────────────
 	var cat_bar := PanelContainer.new()
@@ -120,8 +121,8 @@ func _refresh_list() -> void:
 		ch.queue_free()
 	await get_tree().process_frame
 
-	_metal_lbl.text = "⚙ %d" % GameData.metal_scrap
-	_crystal_lbl.text = "  💎 %d" % GameData.void_crystals
+	_metal_lbl.text = "%d" % GameData.metal_scrap
+	_crystal_lbl.text = "%d" % GameData.void_crystals
 
 	# Sort: researched first, then by research_cost
 	var module_ids: Array[String] = []
@@ -226,7 +227,8 @@ func _make_module_row(mid: String, mdata: Dictionary) -> HBoxContainer:
 
 	if not researched:
 		var res_btn := Button.new()
-		res_btn.text = "Zkoumat\n💎 %d" % res_cost
+		res_btn.text = "Zkoumat\n%d" % res_cost
+		ResourceUI.apply_button_icon(res_btn, ResourceUI.CRYSTAL)
 		res_btn.custom_minimum_size = Vector2(120, 52)
 		res_btn.add_theme_font_size_override("font_size", 13)
 		res_btn.disabled = not GameData.can_research(mid)
@@ -237,7 +239,8 @@ func _make_module_row(mid: String, mdata: Dictionary) -> HBoxContainer:
 		btn_col.add_child(res_btn)
 	else:
 		var buy_btn := Button.new()
-		buy_btn.text = "Koupit\n⚙ %d" % buy_cost
+		buy_btn.text = "Koupit\n%d" % buy_cost
+		ResourceUI.apply_button_icon(buy_btn, ResourceUI.METAL)
 		buy_btn.custom_minimum_size = Vector2(120, 52)
 		buy_btn.add_theme_font_size_override("font_size", 13)
 		buy_btn.disabled = not GameData.can_buy(mid)
@@ -258,7 +261,7 @@ func _on_research(module_id: String) -> void:
 	if GameData.research_module(module_id):
 		_status_lbl.text = "✓ Vyzkoumal jsi: %s" % GameData.MODULE_DATA[module_id].get("name", module_id)
 	else:
-		_status_lbl.text = "Nedostatek 💎 void krystalů!"
+		_status_lbl.text = "Nedostatek void krystalů!"
 	_refresh_list()
 
 func _on_buy(module_id: String) -> void:
@@ -268,5 +271,5 @@ func _on_buy(module_id: String) -> void:
 			GameData.owned_modules.get(module_id, 0)
 		]
 	else:
-		_status_lbl.text = "Nedostatek ⚙ kovového šrotu!"
+		_status_lbl.text = "Nedostatek kovového šrotu!"
 	_refresh_list()

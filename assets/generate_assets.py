@@ -372,9 +372,10 @@ save_if_missing(upscale(make_enemy_rare(),  2), "enemies", "enemy_rare.png")
 save(make_bullet_player(), "bullets", "bullet_player.png")
 save(make_bullet_enemy(),  "bullets", "bullet_enemy.png")
 
-# Pickups (scale ×2)
-save(upscale(make_pickup_metal(),   2), "pickups", "pickup_metal.png")
-save(upscale(make_pickup_crystal(), 2), "pickups", "pickup_crystal.png")
+# Pickups are PixelLab-authored PNGs. Keep them when regenerating assets;
+# procedural sprites are only a fallback for missing files.
+save_if_missing(upscale(make_pickup_metal(),   2), "pickups", "pickup_metal.png")
+save_if_missing(upscale(make_pickup_crystal(), 2), "pickups", "pickup_crystal.png")
 
 # Module icons (scale ×2 → 64×64)
 save(upscale(make_mod_weapon(),    2), "modules", "mod_weapon.png")

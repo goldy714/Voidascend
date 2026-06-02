@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+const ResourceUI = preload("res://scripts/resource_ui.gd")
+
 var _hp_bar: ProgressBar
 var _metal_lbl: Label
 var _crystal_lbl: Label
@@ -39,16 +41,13 @@ func _build_top_bar() -> void:
 	_hp_bar.show_percentage = false
 	hp_col.add_child(_hp_bar)
 
-	_metal_lbl = Label.new()
-	_metal_lbl.text = "⚙ 0"
-	_metal_lbl.add_theme_font_size_override("font_size", 17)
-	hbox.add_child(_metal_lbl)
+	var metal_counter: Dictionary = ResourceUI.make_counter(ResourceUI.METAL, 0, 17, 26)
+	_metal_lbl = metal_counter["label"] as Label
+	hbox.add_child(metal_counter["row"] as HBoxContainer)
 
-	_crystal_lbl = Label.new()
-	_crystal_lbl.text = "💎 0"
-	_crystal_lbl.add_theme_font_size_override("font_size", 17)
-	_crystal_lbl.add_theme_color_override("font_color", Color(0.25, 0.92, 1.00))
-	hbox.add_child(_crystal_lbl)
+	var crystal_counter: Dictionary = ResourceUI.make_counter(ResourceUI.CRYSTAL, 0, 17, 26)
+	_crystal_lbl = crystal_counter["label"] as Label
+	hbox.add_child(crystal_counter["row"] as HBoxContainer)
 
 	_wave_lbl = Label.new()
 	_wave_lbl.text = "Vlna -"
@@ -110,10 +109,10 @@ func update_hp(current: int, maximum: int) -> void:
 	_hp_bar.value = current
 
 func update_metal(amount: int) -> void:
-	_metal_lbl.text = "⚙ %d" % amount
+	_metal_lbl.text = "%d" % amount
 
 func update_crystals(amount: int) -> void:
-	_crystal_lbl.text = "💎 %d" % amount
+	_crystal_lbl.text = "%d" % amount
 
 func update_wave(wave_num: int) -> void:
 	_wave_lbl.text = "Vlna %d" % wave_num
@@ -204,20 +203,13 @@ func show_game_over(victory: bool, metal: int, crystals: int) -> void:
 
 	# Resources earned
 	var metal_keep: int = metal if victory else int(metal * 0.5)
-	var m_lbl := Label.new()
-	m_lbl.text = "⚙  +%d kovový šrot" % metal_keep
+	var metal_text := "+%d kovový šrot" % metal_keep
 	if not victory:
-		m_lbl.text += "  (50% za prohru)"
-	m_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	m_lbl.add_theme_font_size_override("font_size", 20)
-	vbox.add_child(m_lbl)
+		metal_text += "  (50% za prohru)"
+	vbox.add_child(ResourceUI.make_amount_row(ResourceUI.METAL, metal_text, 20, 30))
 
-	var c_lbl := Label.new()
-	c_lbl.text = "💎  +%d void krystalů" % crystals
-	c_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	c_lbl.add_theme_font_size_override("font_size", 20)
-	c_lbl.add_theme_color_override("font_color", Color(0.25, 0.92, 1.00))
-	vbox.add_child(c_lbl)
+	vbox.add_child(ResourceUI.make_amount_row(
+		ResourceUI.CRYSTAL, "+%d void krystalů" % crystals, 20, 30))
 
 	vbox.add_child(_sep(4))
 	vbox.add_child(HSeparator.new())

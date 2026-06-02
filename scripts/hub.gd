@@ -1,5 +1,11 @@
 extends Node2D
 
+const ResourceUI = preload("res://scripts/resource_ui.gd")
+const NAV_HANGAR_TEXTURE: Texture2D = preload("res://assets/navigation/nav_hangar.png")
+const NAV_SHOP_TEXTURE: Texture2D = preload("res://assets/navigation/nav_shop.png")
+const NAV_MISSIONS_TEXTURE: Texture2D = preload("res://assets/navigation/nav_missions.png")
+const NAV_TESTER_TEXTURE: Texture2D = preload("res://assets/navigation/nav_tester.png")
+
 func _ready() -> void:
 	_build_background()
 	_build_ui()
@@ -51,16 +57,10 @@ func _build_ui() -> void:
 	title_lbl.add_theme_color_override("font_color", Color(0.25, 0.75, 1.00))
 	top_hbox.add_child(title_lbl)
 
-	var metal_lbl := Label.new()
-	metal_lbl.text = "⚙ %d" % GameData.metal_scrap
-	metal_lbl.add_theme_font_size_override("font_size", 18)
-	top_hbox.add_child(metal_lbl)
-
-	var crystal_lbl := Label.new()
-	crystal_lbl.text = "💎 %d" % GameData.void_crystals
-	crystal_lbl.add_theme_font_size_override("font_size", 18)
-	crystal_lbl.add_theme_color_override("font_color", Color(0.25, 0.92, 1.00))
-	top_hbox.add_child(crystal_lbl)
+	top_hbox.add_child(ResourceUI.make_amount_row(
+		ResourceUI.METAL, "%d" % GameData.metal_scrap, 18, 26))
+	top_hbox.add_child(ResourceUI.make_amount_row(
+		ResourceUI.CRYSTAL, "%d" % GameData.void_crystals, 18, 26))
 
 	# ── Centre split: left ship | right info ─────────────────────
 	var split := HBoxContainer.new()
@@ -198,36 +198,42 @@ func _build_ui() -> void:
 	btn_hbox.add_theme_constant_override("separation", 16)
 	bottom.add_child(btn_hbox)
 
-	_make_btn(btn_hbox, "🔧 HANGÁR", Color(0.30, 0.55, 0.90),
+	_make_btn(btn_hbox, "HANGÁR", NAV_HANGAR_TEXTURE, Color(0.30, 0.55, 0.90),
 		func() -> void: get_tree().change_scene_to_file("res://scenes/hangar.tscn"))
-	_make_btn(btn_hbox, "🛒 OBCHOD", Color(0.25, 0.70, 0.35),
+	_make_btn(btn_hbox, "OBCHOD", NAV_SHOP_TEXTURE, Color(0.25, 0.70, 0.35),
 		func() -> void: get_tree().change_scene_to_file("res://scenes/shop.tscn"))
-	_make_btn(btn_hbox, "🚀 MISE",   Color(0.85, 0.35, 0.15),
+	_make_btn(btn_hbox, "MISE", NAV_MISSIONS_TEXTURE, Color(0.85, 0.35, 0.15),
 		func() -> void: get_tree().change_scene_to_file("res://scenes/planet_map.tscn"))
 
 	# Tester menu button
 	var tester_btn := Button.new()
-	tester_btn.custom_minimum_size = Vector2(140, 60)
+	tester_btn.custom_minimum_size = Vector2(164, 60)
 	tester_btn.add_theme_font_size_override("font_size", 15)
+	_apply_nav_icon(tester_btn, NAV_TESTER_TEXTURE)
 	_update_tester_btn(tester_btn)
 	tester_btn.pressed.connect(func() -> void: _show_tester_menu(ui, tester_btn))
 	btn_hbox.add_child(tester_btn)
 
-func _make_btn(parent: HBoxContainer, txt: String, clr: Color, cb: Callable) -> void:
+func _make_btn(parent: HBoxContainer, txt: String, icon: Texture2D, clr: Color, cb: Callable) -> void:
 	var btn := Button.new()
 	btn.text = txt
-	btn.custom_minimum_size = Vector2(168, 60)
+	btn.custom_minimum_size = Vector2(176, 60)
 	btn.add_theme_font_size_override("font_size", 18)
+	_apply_nav_icon(btn, icon)
 	btn.modulate = clr
 	btn.pressed.connect(cb)
 	parent.add_child(btn)
 
+func _apply_nav_icon(btn: Button, icon: Texture2D) -> void:
+	btn.icon = icon
+	btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
 func _update_tester_btn(btn: Button) -> void:
 	if GameData.tester_mode:
-		btn.text = "🧪 TESTER: ZAP"
+		btn.text = "TESTER: ZAP"
 		btn.modulate = Color(0.20, 0.90, 0.40)
 	else:
-		btn.text = "🧪 TESTER: VYP"
+		btn.text = "TESTER: VYP"
 		btn.modulate = Color(0.45, 0.45, 0.50)
 
 func _show_tester_menu(ui: CanvasLayer, tester_btn: Button) -> void:
