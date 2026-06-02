@@ -13,6 +13,9 @@ const BULLET_SCENE = preload("res://scenes/bullet_enemy.tscn")
 
 const CONTACT_DAMAGE: int   = 20
 const CONTACT_INTERVAL: float = 0.8
+const ENTRY_Y_MIN: float = 160.0
+const ENTRY_Y_MAX: float = 240.0
+const EDGE_PADDING: float = 34.0
 
 var _hp: int
 var _shoot_timer: float
@@ -20,6 +23,9 @@ var _contact_timer: float = 0.0
 var _player_touching: bool = false
 var _target_marked: bool = false
 var _target_damage_mult: float = 1.0
+var _entered_screen: bool = false
+var _entry_y: float = ENTRY_Y_MIN
+var _horizontal_direction: float = 1.0
 
 func _ready() -> void:
 	_hp = max_hp
@@ -53,6 +59,8 @@ func _ready() -> void:
 	contact_area.body_exited.connect(_on_contact_body_exited)
 	add_child(contact_area)
 
+	_horizontal_direction = -1.0 if randf() < 0.5 else 1.0
+	_entry_y = randf_range(ENTRY_Y_MIN, ENTRY_Y_MAX)
 	_setup_sprite()
 
 func _setup_sprite() -> void:
@@ -65,14 +73,26 @@ func _setup_sprite() -> void:
 	add_child(spr)
 
 func _physics_process(delta: float) -> void:
-	velocity = Vector2(0.0, move_speed)
-	move_and_slide()
+	var viewport_size: Vector2 = get_viewport_rect().size
+
+	if not _entered_screen:
+		velocity = Vector2(0.0, move_speed)
+		move_and_slide()
+		if global_position.y >= _entry_y:
+			_entered_screen = true
+			global_position.y = _entry_y
+	else:
+		velocity = Vector2(_horizontal_direction * move_speed, 0.0)
+		move_and_slide()
+		if global_position.x <= EDGE_PADDING:
+			global_position.x = EDGE_PADDING
+			_horizontal_direction = 1.0
+		elif global_position.x >= viewport_size.x - EDGE_PADDING:
+			global_position.x = viewport_size.x - EDGE_PADDING
+			_horizontal_direction = -1.0
+
 	if _target_marked:
 		queue_redraw()
-
-	if global_position.y > get_viewport_rect().size.y + 60.0:
-		queue_free()
-		return
 
 	_shoot_timer -= delta
 	if _shoot_timer <= 0.0:

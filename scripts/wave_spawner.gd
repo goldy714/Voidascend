@@ -34,7 +34,7 @@ func _next_wave() -> void:
 		_spawn_wave(current_wave)
 
 func _spawn_wave(wave_num: int) -> void:
-	var count: int    = 4 + wave_num * 2          # 6, 8, 10, 12, 14
+	var count: int    = 6 + wave_num * 3          # 9, 12, 15, 18, 21
 	var rare_count: int = 1 if wave_num >= 2 else 0
 	var screen_w: float = get_viewport().get_visible_rect().size.x
 	enemies_alive = 0
