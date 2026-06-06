@@ -182,16 +182,26 @@ func _spawn_collector_arms(ship: Dictionary) -> void:
 	var grid: Vector2i = ship.get("grid", Vector2i(3, 3))
 	var origin: Vector2 = ShipDraw.get_grid_origin(grid.x, grid.y)
 	for c: Dictionary in _stats.get("collectors", []):
-		var arm := CollectorArmScript.new()
-		arm.arm_type       = c["type"]
-		arm.reach          = c["reach"]
-		arm.attract_radius = c["attract_radius"]
-		arm.player         = self
 		var slot: int = c["slot"]
 		var col: int = slot % grid.x
 		var row: int = slot / grid.x
-		arm.position = origin + Vector2(col * ShipDraw.CELL, row * ShipDraw.CELL)
-		add_child(arm)
+		var slot_pos: Vector2 = origin + Vector2(col * ShipDraw.CELL, row * ShipDraw.CELL)
+		var arm_count: int = max(1, int(c.get("arms", 1)))
+		for arm_index: int in arm_count:
+			var arm := CollectorArmScript.new()
+			arm.arm_type       = c["type"]
+			arm.reach          = c["reach"]
+			arm.attract_radius = c["attract_radius"]
+			arm.player         = self
+			arm.position = slot_pos + _collector_arm_offset(arm_index, arm_count)
+			add_child(arm)
+
+func _collector_arm_offset(arm_index: int, arm_count: int) -> Vector2:
+	if arm_count <= 1:
+		return Vector2.ZERO
+	var spacing: float = 9.0
+	var centered_index: float = float(arm_index) - float(arm_count - 1) * 0.5
+	return Vector2(centered_index * spacing, 0.0)
 
 func _draw() -> void:
 	if _is_dashing:

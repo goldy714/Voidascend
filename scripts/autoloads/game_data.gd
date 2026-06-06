@@ -98,10 +98,16 @@ var MODULE_DATA: Dictionary = {
 	},
 	# ── Collectors ──────────────────────────────────────────────
 	"basic_collector": {
-		"name": "Základní sběrač", "category": "collector",
-		"desc": "Mechanické klepeto. Sbírá materiál v krátkém dosahu.",
+		"name": "Základní sběrač 1", "category": "collector",
+		"desc": "Jedna mechanická paže. Sbírá materiál v krátkém dosahu.",
 		"research_cost": 0, "buy_cost": 0,
-		"effect": {"pickup_range": 90.0},
+		"effect": {"pickup_range": 90.0, "arms": 1},
+	},
+	"basic_collector_2": {
+		"name": "Základní sběrač 2", "category": "collector",
+		"desc": "Dvě mechanické paže sbírají materiál současně a dosáhnou o trochu dál.",
+		"research_cost": 3, "buy_cost": 160,
+		"effect": {"pickup_range": 110.0, "arms": 2},
 	},
 	"magnet_collector": {
 		"name": "Magnetický sběrač", "category": "collector",
@@ -448,6 +454,7 @@ func get_player_stats() -> Dictionary:
 				var c_reach: float = eff.get("pickup_range", 0.0)
 				stats["pickup_range"] = max(stats["pickup_range"], c_reach)
 				var arm_type: String = "telescope"
+				var arm_count: int = max(1, int(eff.get("arms", 1)))
 				var attract_r: float = 0.0
 				if module_id == "magnet_collector":
 					arm_type = "ik"
@@ -457,6 +464,7 @@ func get_player_stats() -> Dictionary:
 					"type":           arm_type,
 					"reach":          c_reach,
 					"attract_radius": attract_r,
+					"arms":           arm_count,
 				})
 			"cargo":
 				stats["has_cargo"] = true

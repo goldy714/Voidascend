@@ -328,6 +328,7 @@ static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		"advanced_engine":  _eng_advanced(canvas, pos)
 		"ion_engine":       _eng_ion(canvas, pos)
 		"basic_collector":  _col_basic(canvas, pos)
+		"basic_collector_2": _col_basic_dual(canvas, pos)
 		"magnet_collector": _col_magnet(canvas, pos)
 		"small_cargo":      _cargo(canvas, pos, 3.5)
 		"medium_cargo":     _cargo(canvas, pos, 5.0)
@@ -489,6 +490,12 @@ static func _col_basic(canvas: CanvasItem, pos: Vector2) -> void:
 	canvas.draw_line(pos + Vector2( 5.5, -3.5), pos + Vector2( 1.5, 4.5), col, 1.6)
 	canvas.draw_line(pos + Vector2(-5.5, -3.5), pos + Vector2( 5.5, -3.5), col, 1.6)
 	canvas.draw_line(pos + Vector2(-1.5,  4.5), pos + Vector2( 1.5,  4.5), col, 2.0)
+
+static func _col_basic_dual(canvas: CanvasItem, pos: Vector2) -> void:
+	_col_basic(canvas, pos + Vector2(-3.3, 0.0))
+	_col_basic(canvas, pos + Vector2(3.3, 0.0))
+	canvas.draw_line(pos + Vector2(-6.0, 5.8), pos + Vector2(6.0, 5.8),
+		Color(0.92, 0.72, 0.18, 0.76), 1.4)
 
 static func _col_magnet(canvas: CanvasItem, pos: Vector2) -> void:
 	var c1 := Color(0.95, 0.22, 0.22)
