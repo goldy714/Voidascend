@@ -52,6 +52,12 @@ var MODULE_DATA: Dictionary = {
 		"research_cost": 3, "buy_cost": 150,
 		"effect": {"fire_pattern": "minigun", "damage": 8, "fire_rate": 0.06},
 	},
+	"target_marker": {
+		"name": "Target marker", "category": "weapon",
+		"desc": "Označuje jednoho nepřítele, který dostává o 50 % vyšší poškození.",
+		"research_cost": 4, "buy_cost": 220,
+		"effect": {"target_marker": true, "damage_mult": 1.50, "mark_interval": 2.0},
+	},
 	# ── Shields ─────────────────────────────────────────────────
 	"energy_shield": {
 		"name": "Energetický štít", "category": "shield",
@@ -389,6 +395,7 @@ func get_player_stats() -> Dictionary:
 		"metal_mult":     meta_bonuses.get("metal_pickup_mult", 1.0),
 		"reflect_shield": false,
 		"weapons":        [],
+		"target_markers": [],
 		"specials":       [],
 		"collectors":     [],
 	}
@@ -401,13 +408,21 @@ func get_player_stats() -> Dictionary:
 		var eff: Dictionary  = data.get("effect", {})
 		match data.get("category", ""):
 			"weapon":
-				stats["weapons"].append({
-					"id":      module_id,
-					"pattern": eff.get("fire_pattern", "single"),
-					"damage":  eff.get("damage", 20),
-					"rate":    eff.get("fire_rate", 0.22),
-					"slot":    i,
-				})
+				if eff.get("target_marker", false):
+					stats["target_markers"].append({
+						"id":          module_id,
+						"damage_mult": eff.get("damage_mult", 1.50),
+						"interval":    eff.get("mark_interval", 2.0),
+						"slot":        i,
+					})
+				else:
+					stats["weapons"].append({
+						"id":      module_id,
+						"pattern": eff.get("fire_pattern", "single"),
+						"damage":  eff.get("damage", 20),
+						"rate":    eff.get("fire_rate", 0.22),
+						"slot":    i,
+					})
 			"engine":
 				stats["has_engine"] = true
 				stats["speed"] *= eff.get("speed_mult", 1.0)

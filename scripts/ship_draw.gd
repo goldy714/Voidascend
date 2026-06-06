@@ -320,6 +320,7 @@ static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		"rockets":          _wep_rockets(canvas, pos, aim)
 		"shotgun":          _wep_shotgun(canvas, pos, aim)
 		"minigun":          _wep_minigun(canvas, pos, aim)
+		"target_marker":    _wep_target_marker(canvas, pos)
 		"energy_shield":    _shld_energy(canvas, pos)
 		"reflect_shield":   _shld_reflect(canvas, pos, aim)
 		"basic_engine":     _eng_basic(canvas, pos)
@@ -407,6 +408,19 @@ static func _wep_minigun(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void
 		var side: Vector2 = perp * cos(spin) * 3.0
 		canvas.draw_line(pos + side - aim * 1.5, pos + side + aim * 8.0, col, 1.5)
 	canvas.draw_circle(pos, 2.0, col * Color(1, 1, 1, 0.52))
+
+static func _wep_target_marker(canvas: CanvasItem, pos: Vector2) -> void:
+	var col := Color(1.00, 0.28, 0.18)
+	var scan := Color(1.00, 0.78, 0.24)
+	var t: float = float(Time.get_ticks_msec()) * 0.004
+	canvas.draw_circle(pos, 5.8, Color(0.24, 0.04, 0.04, 0.66))
+	canvas.draw_arc(pos, 6.4, t, t + TAU * 0.72, 24, col, 1.5)
+	canvas.draw_arc(pos, 3.3, -t * 1.4, -t * 1.4 + TAU * 0.55, 18, scan, 1.2)
+	canvas.draw_line(pos + Vector2(-7.0, 0.0), pos + Vector2(-3.2, 0.0), col, 1.2)
+	canvas.draw_line(pos + Vector2(3.2, 0.0), pos + Vector2(7.0, 0.0), col, 1.2)
+	canvas.draw_line(pos + Vector2(0.0, -7.0), pos + Vector2(0.0, -3.2), col, 1.2)
+	canvas.draw_line(pos + Vector2(0.0, 3.2), pos + Vector2(0.0, 7.0), col, 1.2)
+	canvas.draw_circle(pos, 1.4, Color(1.00, 0.92, 0.66, 0.90))
 
 # ── Shields ───────────────────────────────────────────────────────────────────
 

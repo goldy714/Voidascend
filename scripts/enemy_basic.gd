@@ -18,6 +18,8 @@ var _hp: int
 var _shoot_timer: float
 var _contact_timer: float = 0.0
 var _player_touching: bool = false
+var _target_marked: bool = false
+var _target_damage_mult: float = 1.0
 
 func _ready() -> void:
 	_hp = max_hp
@@ -65,6 +67,8 @@ func _setup_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	velocity = Vector2(0.0, move_speed)
 	move_and_slide()
+	if _target_marked:
+		queue_redraw()
 
 	if global_position.y > get_viewport_rect().size.y + 60.0:
 		queue_free()
@@ -102,8 +106,30 @@ func _on_contact_body_exited(body: Node2D) -> void:
 	if body.is_in_group("player"):
 		_player_touching = false
 
+func _draw() -> void:
+	if not _target_marked:
+		return
+	var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.008)
+	var col := Color(1.0, 0.28, 0.18, 0.72 + 0.22 * pulse)
+	draw_arc(Vector2.ZERO, 29.0 + 3.0 * pulse, 0.0, TAU, 40, col, 2.4)
+	draw_arc(Vector2.ZERO, 18.0, 0.0, TAU, 32, Color(1.0, 0.78, 0.24, 0.50), 1.4)
+	draw_line(Vector2(-36.0, 0.0), Vector2(-22.0, 0.0), col, 2.0)
+	draw_line(Vector2(22.0, 0.0), Vector2(36.0, 0.0), col, 2.0)
+	draw_line(Vector2(0.0, -36.0), Vector2(0.0, -22.0), col, 2.0)
+	draw_line(Vector2(0.0, 22.0), Vector2(0.0, 36.0), col, 2.0)
+
+func set_target_marker(damage_mult: float) -> void:
+	_target_marked = true
+	_target_damage_mult = max(1.0, damage_mult)
+	queue_redraw()
+
+func clear_target_marker() -> void:
+	_target_marked = false
+	_target_damage_mult = 1.0
+	queue_redraw()
+
 func take_damage(amount: int) -> void:
-	_hp -= amount
+	_hp -= int(ceil(float(amount) * _target_damage_mult))
 	modulate = Color(1.0, 0.5, 0.5)
 	var tw := create_tween()
 	tw.tween_property(self, "modulate", Color.WHITE, 0.12)

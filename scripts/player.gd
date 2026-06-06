@@ -25,6 +25,11 @@ var _pickup_range: float = 0.0
 var _has_cargo: bool     = false
 var _has_engine: bool    = false
 var _metal_mult: float   = 1.0
+var _target_marker_enabled: bool = false
+var _target_marker_interval: float = 2.0
+var _target_marker_damage_mult: float = 1.5
+var _target_marker_timer: float = 0.0
+var _marked_enemy: Node2D = null
 
 # Per-weapon fire timers (one entry per equipped weapon)
 var _weapon_timers: Array[float] = []
@@ -68,6 +73,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	_close_orbital_prompt()
+	_clear_marked_enemy()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_alive:
@@ -109,11 +115,29 @@ func _apply_modules() -> void:
 	# Ship ability cooldown
 	var ship: Dictionary = GameData.SHIP_DATA[GameData.current_ship]
 	_ability_cooldown = ship.get("active_cooldown", 2.5)
+	_apply_target_markers()
 	_apply_special_abilities()
 
 	_spawn_collector_arms(ship)
 
 	hp_changed.emit(hp, _max_hp)
+
+func _apply_target_markers() -> void:
+	_clear_marked_enemy()
+	_target_marker_enabled = false
+	_target_marker_interval = 2.0
+	_target_marker_damage_mult = 1.5
+	_target_marker_timer = 0.0
+	var target_markers: Array = _stats.get("target_markers", [])
+	if target_markers.is_empty():
+		return
+	var marker_value: Variant = target_markers[0]
+	if not (marker_value is Dictionary):
+		return
+	var marker: Dictionary = marker_value
+	_target_marker_enabled = true
+	_target_marker_interval = float(marker.get("interval", 2.0))
+	_target_marker_damage_mult = float(marker.get("damage_mult", 1.5))
 
 func _apply_special_abilities() -> void:
 	_has_orbital_bombardment = false
@@ -177,6 +201,7 @@ func _physics_process(delta: float) -> void:
 	if not is_alive:
 		return
 	_orbital_timer = max(0.0, _orbital_timer - delta)
+	_update_target_marker(delta)
 	if _is_dashing:
 		_update_dash(delta)
 	else:
@@ -317,6 +342,49 @@ func _do_salvo() -> void:
 	# Fire all weapons simultaneously (Destroyer active)
 	for w: Dictionary in _stats["weapons"]:
 		_fire_weapon(w)
+
+# ── Target marker module ──────────────────────────────────────────
+func _update_target_marker(delta: float) -> void:
+	if not _target_marker_enabled:
+		return
+	if _is_marked_enemy_valid():
+		return
+	if _marked_enemy != null:
+		_clear_marked_enemy()
+		_target_marker_timer = _target_marker_interval
+	_target_marker_timer -= delta
+	if _target_marker_timer <= 0.0:
+		_mark_random_enemy()
+
+func _mark_random_enemy() -> void:
+	var enemies: Array[Node2D] = _get_targetable_enemies()
+	if enemies.is_empty():
+		_clear_marked_enemy()
+		return
+	var enemy: Node2D = enemies[randi() % enemies.size()]
+	_clear_marked_enemy()
+	_marked_enemy = enemy
+	if _marked_enemy.has_method("set_target_marker"):
+		_marked_enemy.call("set_target_marker", _target_marker_damage_mult)
+
+func _get_targetable_enemies() -> Array[Node2D]:
+	var enemies: Array[Node2D] = []
+	for enemy_node: Node in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(enemy_node):
+			continue
+		var enemy: Node2D = enemy_node as Node2D
+		if enemy == null:
+			continue
+		enemies.append(enemy)
+	return enemies
+
+func _is_marked_enemy_valid() -> bool:
+	return is_instance_valid(_marked_enemy) and _marked_enemy.is_in_group("enemies")
+
+func _clear_marked_enemy() -> void:
+	if is_instance_valid(_marked_enemy) and _marked_enemy.has_method("clear_target_marker"):
+		_marked_enemy.call("clear_target_marker")
+	_marked_enemy = null
 
 # ── Special module ability (F) ────────────────────────────────────
 func _try_open_orbital_sequence() -> void:
