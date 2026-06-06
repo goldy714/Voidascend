@@ -60,6 +60,11 @@ func _process(_delta: float) -> void:
 	# Update ability indicator every frame
 	if is_instance_valid(_player):
 		_hud.update_ability(_player.get_ability_timer(), _player.get_ability_cooldown())
+		_hud.update_special_ability(
+			_player.has_orbital_bombardment(),
+			_player.get_orbital_timer(),
+			_player.get_orbital_cooldown()
+		)
 
 # ── Background ────────────────────────────────────────────────────
 func _spawn_background() -> void:

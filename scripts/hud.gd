@@ -5,6 +5,7 @@ var _metal_lbl: Label
 var _crystal_lbl: Label
 var _wave_lbl: Label
 var _ability_lbl: Label
+var _special_lbl: Label
 var _overlay: ColorRect
 
 func _ready() -> void:
@@ -74,6 +75,13 @@ func _build_ability_bar() -> void:
 	_ability_lbl.add_theme_color_override("font_color", Color.GREEN)
 	hbox.add_child(_ability_lbl)
 
+	_special_lbl = Label.new()
+	_special_lbl.text = ""
+	_special_lbl.add_theme_font_size_override("font_size", 14)
+	_special_lbl.add_theme_color_override("font_color", Color(0.30, 0.82, 1.00))
+	_special_lbl.hide()
+	hbox.add_child(_special_lbl)
+
 # ── Game over overlay ─────────────────────────────────────────────
 func _build_game_over() -> void:
 	_overlay = ColorRect.new()
@@ -110,6 +118,18 @@ func update_ability(timer: float, cooldown: float) -> void:
 	else:
 		_ability_lbl.text = "[SPACE] %s: %.1fs" % [ship_name, timer]
 		_ability_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+
+func update_special_ability(available: bool, timer: float, _cooldown: float) -> void:
+	if not available:
+		_special_lbl.hide()
+		return
+	_special_lbl.show()
+	if timer <= 0.0:
+		_special_lbl.text = "   [F] Orbitální bombardování: READY"
+		_special_lbl.add_theme_color_override("font_color", Color(0.30, 0.82, 1.00))
+	else:
+		_special_lbl.text = "   [F] Orbitální bombardování: %.1fs" % timer
+		_special_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 
 func show_game_over(victory: bool, metal: int, crystals: int) -> void:
 	for c: Node in _overlay.get_children():

@@ -142,6 +142,12 @@ var MODULE_DATA: Dictionary = {
 		"research_cost": 8, "buy_cost": 400,
 		"effect": {"ability": "fighter", "cooldown": 20.0},
 	},
+	"orbital_bombardment": {
+		"name": "Orbitální bombardování", "category": "special",
+		"desc": "Palebný kód F + ↑ ← ↓ → vyvolá sérii bezpečných orbitálních zásahů.",
+		"research_cost": 9, "buy_cost": 450,
+		"effect": {"ability": "orbital_bombardment", "cooldown": 16.0},
+	},
 }
 
 # ═══════════════════════════════════════════════════════════════

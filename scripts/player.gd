@@ -8,6 +8,10 @@ signal crystals_changed(amount: int)
 const BULLET_SCENE = preload("res://scenes/bullet_player.tscn")
 const ShipDraw = preload("res://scripts/ship_draw.gd")
 const CollectorArmScript = preload("res://scripts/collector_arm.gd")
+const OrbitalBombardment = preload("res://scripts/orbital_bombardment.gd")
+
+const ORBITAL_SEQUENCE: Array[int] = [KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT]
+const ORBITAL_SEQUENCE_LABELS: Array[String] = ["↑", "←", "↓", "→"]
 
 const DASH_DISTANCE: float = 160.0
 const DASH_DURATION: float = 0.16
@@ -34,6 +38,15 @@ var _dash_start: Vector2     = Vector2.ZERO
 var _dash_end: Vector2       = Vector2.ZERO
 var _dash_dir: Vector2       = Vector2.UP
 
+# Special module ability (F)
+var _has_orbital_bombardment: bool = false
+var _orbital_timer: float = 0.0
+var _orbital_cooldown: float = 16.0
+var _orbital_prompt_layer: CanvasLayer = null
+var _orbital_sequence_index: int = 0
+var _orbital_sequence_slots: Array[PanelContainer] = []
+var _orbital_sequence_locked: bool = false
+
 # Runtime state
 var hp: int            = 100
 var is_alive: bool     = true
@@ -52,6 +65,28 @@ func _ready() -> void:
 	cs.shape = shape
 	add_child(cs)
 	_apply_modules()
+
+func _exit_tree() -> void:
+	_close_orbital_prompt()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not is_alive:
+		return
+	if not (event is InputEventKey):
+		return
+	var key_event: InputEventKey = event
+	if not key_event.pressed or key_event.echo:
+		return
+
+	if is_instance_valid(_orbital_prompt_layer):
+		if key_event.keycode in [KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT]:
+			_handle_orbital_sequence_key(key_event.keycode)
+			get_viewport().set_input_as_handled()
+		return
+
+	if key_event.keycode == KEY_F:
+		_try_open_orbital_sequence()
+		get_viewport().set_input_as_handled()
 
 
 func _apply_modules() -> void:
@@ -74,10 +109,21 @@ func _apply_modules() -> void:
 	# Ship ability cooldown
 	var ship: Dictionary = GameData.SHIP_DATA[GameData.current_ship]
 	_ability_cooldown = ship.get("active_cooldown", 2.5)
+	_apply_special_abilities()
 
 	_spawn_collector_arms(ship)
 
 	hp_changed.emit(hp, _max_hp)
+
+func _apply_special_abilities() -> void:
+	_has_orbital_bombardment = false
+	_orbital_cooldown = 16.0
+	for special: Dictionary in _stats.get("specials", []):
+		if special.get("ability", "") == "orbital_bombardment":
+			_has_orbital_bombardment = true
+			_orbital_cooldown = float(special.get("cooldown", _orbital_cooldown))
+			return
+	_close_orbital_prompt()
 
 
 func _spawn_collector_arms(ship: Dictionary) -> void:
@@ -130,6 +176,7 @@ func _draw_dash_trail() -> void:
 func _physics_process(delta: float) -> void:
 	if not is_alive:
 		return
+	_orbital_timer = max(0.0, _orbital_timer - delta)
 	if _is_dashing:
 		_update_dash(delta)
 	else:
@@ -271,6 +318,156 @@ func _do_salvo() -> void:
 	for w: Dictionary in _stats["weapons"]:
 		_fire_weapon(w)
 
+# ── Special module ability (F) ────────────────────────────────────
+func _try_open_orbital_sequence() -> void:
+	if not _has_orbital_bombardment or _orbital_timer > 0.0:
+		return
+	_orbital_sequence_index = 0
+	_build_orbital_prompt()
+
+func _build_orbital_prompt() -> void:
+	_close_orbital_prompt()
+	_orbital_sequence_slots.clear()
+	_orbital_sequence_locked = false
+
+	_orbital_prompt_layer = CanvasLayer.new()
+	_orbital_prompt_layer.layer = 96
+	get_tree().root.add_child(_orbital_prompt_layer)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_orbital_prompt_layer.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(520, 0)
+	center.add_child(panel)
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.03, 0.05, 0.11, 0.92)
+	style.border_color = Color(0.30, 0.82, 1.00, 0.86)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.set_corner_radius_all(6)
+	panel.add_theme_stylebox_override("panel", style)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_bottom", 22)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 12)
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "ORBITÁLNÍ BOMBARDOVÁNÍ"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.38, 0.88, 1.00))
+	vbox.add_child(title)
+
+	var hint := Label.new()
+	hint.text = "Zadej palebný kód pomocí směrových šipek"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_font_size_override("font_size", 14)
+	hint.add_theme_color_override("font_color", Color(0.66, 0.74, 0.86))
+	vbox.add_child(hint)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	vbox.add_child(row)
+
+	for i: int in ORBITAL_SEQUENCE_LABELS.size():
+		var slot_panel := PanelContainer.new()
+		slot_panel.custom_minimum_size = Vector2(68, 58)
+		var slot_label := Label.new()
+		slot_label.text = ORBITAL_SEQUENCE_LABELS[i]
+		slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		slot_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		slot_label.add_theme_font_size_override("font_size", 32)
+		slot_panel.add_child(slot_label)
+		_apply_orbital_slot_style(slot_panel, false, false)
+		row.add_child(slot_panel)
+		_orbital_sequence_slots.append(slot_panel)
+
+	var footer := Label.new()
+	footer.text = "↑  ←  ↓  →"
+	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer.add_theme_font_size_override("font_size", 13)
+	footer.add_theme_color_override("font_color", Color(0.95, 0.70, 0.28))
+	vbox.add_child(footer)
+
+func _handle_orbital_sequence_key(keycode: int) -> void:
+	if _orbital_sequence_locked:
+		return
+	if _orbital_sequence_index >= ORBITAL_SEQUENCE.size():
+		return
+	if keycode != ORBITAL_SEQUENCE[_orbital_sequence_index]:
+		_flash_orbital_sequence_error()
+		return
+
+	_apply_orbital_slot_style(_orbital_sequence_slots[_orbital_sequence_index], true, false)
+	_orbital_sequence_index += 1
+	if _orbital_sequence_index >= ORBITAL_SEQUENCE.size():
+		_activate_orbital_bombardment()
+
+func _activate_orbital_bombardment() -> void:
+	_orbital_timer = _orbital_cooldown
+	_close_orbital_prompt()
+	var bombardment: Node2D = OrbitalBombardment.new()
+	bombardment.global_position = Vector2.ZERO
+	get_parent().add_child(bombardment)
+
+func _flash_orbital_sequence_error() -> void:
+	_orbital_sequence_locked = true
+	for slot: PanelContainer in _orbital_sequence_slots:
+		_apply_orbital_slot_style(slot, false, true)
+	_orbital_sequence_index = 0
+	await get_tree().create_timer(0.16).timeout
+	if not is_instance_valid(_orbital_prompt_layer):
+		return
+	for slot: PanelContainer in _orbital_sequence_slots:
+		_apply_orbital_slot_style(slot, false, false)
+	_orbital_sequence_locked = false
+
+func _apply_orbital_slot_style(slot: PanelContainer, completed: bool, error: bool) -> void:
+	var style := StyleBoxFlat.new()
+	style.set_corner_radius_all(5)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	var label: Label = slot.get_child(0) as Label
+	if label == null:
+		return
+	if error:
+		style.bg_color = Color(0.40, 0.05, 0.08, 0.92)
+		style.border_color = Color(1.00, 0.24, 0.18, 0.95)
+		label.add_theme_color_override("font_color", Color(1.00, 0.62, 0.50))
+	elif completed:
+		style.bg_color = Color(0.04, 0.28, 0.18, 0.95)
+		style.border_color = Color(0.28, 1.00, 0.58, 0.95)
+		label.add_theme_color_override("font_color", Color(0.48, 1.00, 0.70))
+	else:
+		style.bg_color = Color(0.06, 0.08, 0.15, 0.96)
+		style.border_color = Color(0.30, 0.58, 0.88, 0.72)
+		label.add_theme_color_override("font_color", Color(0.74, 0.84, 1.00))
+	slot.add_theme_stylebox_override("panel", style)
+
+func _close_orbital_prompt() -> void:
+	if is_instance_valid(_orbital_prompt_layer):
+		_orbital_prompt_layer.queue_free()
+	_orbital_prompt_layer = null
+	_orbital_sequence_index = 0
+	_orbital_sequence_locked = false
+	_orbital_sequence_slots.clear()
+
 # ── Damage & death ────────────────────────────────────────────────
 func take_damage(amount: int) -> void:
 	if invincible or not is_alive:
@@ -309,3 +506,12 @@ func get_ability_timer() -> float:
 
 func get_ability_cooldown() -> float:
 	return _ability_cooldown
+
+func has_orbital_bombardment() -> bool:
+	return _has_orbital_bombardment
+
+func get_orbital_timer() -> float:
+	return _orbital_timer
+
+func get_orbital_cooldown() -> float:
+	return _orbital_cooldown
