@@ -1,13 +1,28 @@
 extends Node2D
 
+const HangarDragPreview = preload("res://scripts/hangar_drag_preview.gd")
+
 var _inventory_container: VBoxContainer
 var _info_label:          Label
 var _slots_lbl:           Label
 var _ship_view:           Control   # ShipHangarView
+var _right_drop_area:     Control
+var _right_drop_overlay:  Control
 
 func _ready() -> void:
 	_build_background()
 	_build_ui()
+	set_process(false)
+
+func _process(_delta: float) -> void:
+	if not is_instance_valid(_right_drop_overlay) or not _right_drop_overlay.visible:
+		set_process(false)
+		return
+	var pointer_inside: bool = _right_drop_area.get_global_rect().has_point(
+		_right_drop_area.get_global_mouse_position()
+	)
+	if not pointer_inside or not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_show_right_drop_overlay(false)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and not event.is_echo():
@@ -73,11 +88,19 @@ func _build_ui() -> void:
 	split.add_child(divider)
 
 	# ── Right half: inventory ─────────────────────────────────────
+	var right_panel := Control.new()
+	right_panel.custom_minimum_size = Vector2(540, 0)
+	right_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	split.add_child(right_panel)
+	_right_drop_area = right_panel
+
 	var right_vbox := VBoxContainer.new()
-	right_vbox.custom_minimum_size = Vector2(540, 0)
+	right_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right_vbox.add_theme_constant_override("separation", 0)
-	split.add_child(right_vbox)
+	right_panel.add_child(right_vbox)
 
 	# Inventory header
 	var hdr := PanelContainer.new()
@@ -121,32 +144,135 @@ func _build_ui() -> void:
 	_inventory_container.add_theme_constant_override("separation", 2)
 	scroll.add_child(_inventory_container)
 
-	# Unequip drop zone at the bottom
-	var drop_zone := PanelContainer.new()
-	drop_zone.custom_minimum_size = Vector2(0, 72)
-	right_vbox.add_child(drop_zone)
-
-	var dz_lbl := Label.new()
-	dz_lbl.text = "  🗑  Přetáhni instalovaný modul sem pro odebrání ze slotu"
-	dz_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	dz_lbl.add_theme_font_size_override("font_size", 22)
-	dz_lbl.add_theme_color_override("font_color", Color(0.70, 0.38, 0.38))
-	drop_zone.add_child(dz_lbl)
-
-	drop_zone.set_drag_forwarding(
-		func(_pos: Vector2) -> Variant: return null,
-		func(_pos: Vector2, data: Variant) -> bool:
-			return data is Dictionary and data.get("type") == "slot_module",
-		func(_pos: Vector2, data: Variant) -> void:
-			var from_slot: int = data.get("from_slot", -1)
-			if from_slot >= 0:
-				GameData.unequip_module(from_slot)
-				_set_info("✓ Modul odebrán ze slotu")
-				_refresh_inventory()
-				_ship_view.rebuild(_refresh_inventory)
-	)
+	_build_right_drop_overlay(right_panel)
+	_bind_right_drop_area(right_panel)
+	_bind_right_drop_area(right_vbox)
+	_bind_right_drop_area(hdr)
+	_bind_right_drop_area(hint_lbl)
+	_bind_right_drop_area(scroll)
+	_bind_right_drop_area(_inventory_container)
 
 	_refresh_inventory()
+
+func _build_right_drop_overlay(parent: Control) -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.visible = false
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.04, 0.06, 0.10, 0.88)
+	style.border_color = Color(0.95, 0.62, 0.18, 0.95)
+	style.border_width_left = 3
+	style.border_width_top = 3
+	style.border_width_right = 3
+	style.border_width_bottom = 3
+	style.set_corner_radius_all(6)
+	overlay.add_theme_stylebox_override("panel", style)
+	parent.add_child(overlay)
+	_right_drop_overlay = overlay
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_bottom", 28)
+	overlay.add_child(margin)
+
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(center)
+
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 12)
+	center.add_child(box)
+
+	var icon_lbl := Label.new()
+	icon_lbl.text = "⚙"
+	icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_lbl.add_theme_font_size_override("font_size", 52)
+	icon_lbl.add_theme_color_override("font_color", Color(1.0, 0.76, 0.30))
+	box.add_child(icon_lbl)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "ODINSTALOVAT MODUL Z LODI"
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 24)
+	title_lbl.add_theme_color_override("font_color", Color(1.0, 0.88, 0.48))
+	box.add_child(title_lbl)
+
+	var hint_lbl := Label.new()
+	hint_lbl.text = "Pusť modul kdekoliv vpravo"
+	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint_lbl.add_theme_font_size_override("font_size", 17)
+	hint_lbl.add_theme_color_override("font_color", Color(0.76, 0.82, 0.90))
+	box.add_child(hint_lbl)
+
+	var sub_lbl := Label.new()
+	sub_lbl.text = "Modul se vrátí do inventáře"
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub_lbl.add_theme_font_size_override("font_size", 14)
+	sub_lbl.add_theme_color_override("font_color", Color(0.48, 0.55, 0.66))
+	box.add_child(sub_lbl)
+
+func _bind_right_drop_area(area: Control) -> void:
+	area.set_drag_forwarding(
+		func(_pos: Vector2) -> Variant:
+			return _right_drop_get_drag_data(area),
+		_right_drop_can_drop_data,
+		_right_drop_data
+	)
+
+func _bind_right_drop_area_tree(root: Node) -> void:
+	if root is Control:
+		_bind_right_drop_area(root as Control)
+	for child in root.get_children():
+		_bind_right_drop_area_tree(child)
+
+func _right_drop_get_drag_data(area: Control) -> Variant:
+	var module_id: String = _find_inventory_module_id(area)
+	if not module_id.is_empty() and GameData.available_count(module_id) > 0:
+		area.set_drag_preview(HangarDragPreview.make(module_id))
+		return {"type": "module", "module_id": module_id, "from_slot": -1}
+	return null
+
+func _find_inventory_module_id(start: Node) -> String:
+	var node: Node = start
+	while is_instance_valid(node) and node != _inventory_container:
+		var module_id_value: Variant = node.get("module_id")
+		if module_id_value is String:
+			var module_id: String = module_id_value
+			if not module_id.is_empty():
+				return module_id
+		node = node.get_parent()
+	return ""
+
+func _right_drop_can_drop_data(_pos: Vector2, data: Variant) -> bool:
+	var can_drop: bool = false
+	if data is Dictionary:
+		can_drop = data.get("type", "") == "slot_module"
+	_show_right_drop_overlay(can_drop)
+	return can_drop
+
+func _right_drop_data(_pos: Vector2, data: Variant) -> void:
+	_show_right_drop_overlay(false)
+	var from_slot: int = data.get("from_slot", -1)
+	if from_slot >= 0:
+		GameData.unequip_module(from_slot)
+		_set_info("✓ Modul odinstalován z lodi")
+		_refresh_inventory()
+		_ship_view.rebuild(_refresh_inventory)
+
+func _show_right_drop_overlay(value: bool) -> void:
+	if not is_instance_valid(_right_drop_overlay):
+		return
+	if _right_drop_overlay.visible == value:
+		return
+	_right_drop_overlay.visible = value
+	set_process(value)
 
 # ── Refresh ───────────────────────────────────────────────────────
 
@@ -248,6 +374,8 @@ func _build_inventory_list() -> void:
 		lbl.add_theme_color_override("font_color", Color(0.50, 0.50, 0.55))
 		lbl.add_theme_font_size_override("font_size", 15)
 		_inventory_container.add_child(lbl)
+
+	_bind_right_drop_area_tree(_inventory_container)
 
 func _set_info(msg: String) -> void:
 	if is_instance_valid(_info_label):
