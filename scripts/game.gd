@@ -65,6 +65,11 @@ func _process(_delta: float) -> void:
 			_player.get_orbital_timer(),
 			_player.get_orbital_cooldown()
 		)
+		_hud.update_decoy_ability(
+			_player.has_decoy_module(),
+			_player.get_decoy_timer(),
+			_player.get_decoy_cooldown()
+		)
 
 # ── Background ────────────────────────────────────────────────────
 func _spawn_background() -> void:

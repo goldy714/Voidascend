@@ -89,13 +89,26 @@ func _physics_process(delta: float) -> void:
 				player.take_damage(CONTACT_DAMAGE)
 
 func _fire() -> void:
-	var player := get_tree().get_first_node_in_group("player")
-	if not is_instance_valid(player):
+	var target: Node2D = _choose_attack_target()
+	if not is_instance_valid(target):
 		return
 	var bullet: Node2D = BULLET_SCENE.instantiate()
 	bullet.global_position = global_position
-	bullet.direction = (player.global_position - global_position).normalized()
+	bullet.direction = (target.global_position - global_position).normalized()
 	get_parent().add_child(bullet)
+
+func _choose_attack_target() -> Node2D:
+	var decoys: Array = get_tree().get_nodes_in_group("enemy_decoys")
+	if not decoys.is_empty():
+		var decoy_value: Variant = decoys[randi() % decoys.size()]
+		if decoy_value is Node2D and is_instance_valid(decoy_value):
+			var decoy: Node2D = decoy_value
+			return decoy
+	var player := get_tree().get_first_node_in_group("player")
+	if player is Node2D and is_instance_valid(player):
+		var player_2d: Node2D = player
+		return player_2d
+	return null
 
 func _on_contact_body_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):

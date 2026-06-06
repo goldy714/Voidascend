@@ -6,6 +6,7 @@ var _crystal_lbl: Label
 var _wave_lbl: Label
 var _ability_lbl: Label
 var _special_lbl: Label
+var _decoy_lbl: Label
 var _overlay: ColorRect
 
 func _ready() -> void:
@@ -82,6 +83,13 @@ func _build_ability_bar() -> void:
 	_special_lbl.hide()
 	hbox.add_child(_special_lbl)
 
+	_decoy_lbl = Label.new()
+	_decoy_lbl.text = ""
+	_decoy_lbl.add_theme_font_size_override("font_size", 14)
+	_decoy_lbl.add_theme_color_override("font_color", Color(0.42, 0.86, 1.00))
+	_decoy_lbl.hide()
+	hbox.add_child(_decoy_lbl)
+
 # ── Game over overlay ─────────────────────────────────────────────
 func _build_game_over() -> void:
 	_overlay = ColorRect.new()
@@ -130,6 +138,18 @@ func update_special_ability(available: bool, timer: float, _cooldown: float) -> 
 	else:
 		_special_lbl.text = "   [F] Orbitální bombardování: %.1fs" % timer
 		_special_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+
+func update_decoy_ability(available: bool, timer: float, _cooldown: float) -> void:
+	if not available:
+		_decoy_lbl.hide()
+		return
+	_decoy_lbl.show()
+	if timer <= 0.0:
+		_decoy_lbl.text = "   [G] Decoy: READY"
+		_decoy_lbl.add_theme_color_override("font_color", Color(0.42, 0.86, 1.00))
+	else:
+		_decoy_lbl.text = "   [G] Decoy: %.1fs" % timer
+		_decoy_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 
 func show_game_over(victory: bool, metal: int, crystals: int) -> void:
 	for c: Node in _overlay.get_children():

@@ -9,6 +9,7 @@ const BULLET_SCENE = preload("res://scenes/bullet_player.tscn")
 const ShipDraw = preload("res://scripts/ship_draw.gd")
 const CollectorArmScript = preload("res://scripts/collector_arm.gd")
 const OrbitalBombardment = preload("res://scripts/orbital_bombardment.gd")
+const DecoyShip = preload("res://scripts/decoy_ship.gd")
 
 const ORBITAL_SEQUENCE: Array[int] = [KEY_UP, KEY_LEFT, KEY_DOWN, KEY_RIGHT]
 const ORBITAL_SEQUENCE_LABELS: Array[String] = ["↑", "←", "↓", "→"]
@@ -30,6 +31,11 @@ var _target_marker_interval: float = 2.0
 var _target_marker_damage_mult: float = 1.5
 var _target_marker_timer: float = 0.0
 var _marked_enemy: Node2D = null
+var _has_decoy_module: bool = false
+var _decoy_cooldown: float = 20.0
+var _decoy_duration: float = 5.0
+var _decoy_timer: float = 0.0
+var _active_decoy: Node2D = null
 
 # Per-weapon fire timers (one entry per equipped weapon)
 var _weapon_timers: Array[float] = []
@@ -43,7 +49,7 @@ var _dash_start: Vector2     = Vector2.ZERO
 var _dash_end: Vector2       = Vector2.ZERO
 var _dash_dir: Vector2       = Vector2.UP
 
-# Special module ability (F)
+# Special module abilities
 var _has_orbital_bombardment: bool = false
 var _orbital_timer: float = 0.0
 var _orbital_cooldown: float = 16.0
@@ -74,6 +80,7 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	_close_orbital_prompt()
 	_clear_marked_enemy()
+	_clear_active_decoy()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_alive:
@@ -92,6 +99,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if key_event.keycode == KEY_F:
 		_try_open_orbital_sequence()
+		get_viewport().set_input_as_handled()
+		return
+
+	if key_event.keycode == KEY_G:
+		_try_activate_decoy()
 		get_viewport().set_input_as_handled()
 
 
@@ -142,12 +154,21 @@ func _apply_target_markers() -> void:
 func _apply_special_abilities() -> void:
 	_has_orbital_bombardment = false
 	_orbital_cooldown = 16.0
+	_has_decoy_module = false
+	_decoy_cooldown = 20.0
+	_decoy_duration = 5.0
+	_decoy_timer = 0.0
+	_clear_active_decoy()
 	for special: Dictionary in _stats.get("specials", []):
 		if special.get("ability", "") == "orbital_bombardment":
 			_has_orbital_bombardment = true
 			_orbital_cooldown = float(special.get("cooldown", _orbital_cooldown))
-			return
-	_close_orbital_prompt()
+		elif special.get("ability", "") == "decoy":
+			_has_decoy_module = true
+			_decoy_cooldown = float(special.get("cooldown", _decoy_cooldown))
+			_decoy_duration = float(special.get("duration", _decoy_duration))
+	if not _has_orbital_bombardment:
+		_close_orbital_prompt()
 
 
 func _spawn_collector_arms(ship: Dictionary) -> void:
@@ -201,6 +222,8 @@ func _physics_process(delta: float) -> void:
 	if not is_alive:
 		return
 	_orbital_timer = max(0.0, _orbital_timer - delta)
+	_decoy_timer = max(0.0, _decoy_timer - delta)
+	_update_decoy(delta)
 	_update_target_marker(delta)
 	if _is_dashing:
 		_update_dash(delta)
@@ -342,6 +365,40 @@ func _do_salvo() -> void:
 	# Fire all weapons simultaneously (Destroyer active)
 	for w: Dictionary in _stats["weapons"]:
 		_fire_weapon(w)
+
+# ── Decoy special module (G) ──────────────────────────────────────
+func _update_decoy(_delta: float) -> void:
+	if is_instance_valid(_active_decoy):
+		return
+	_active_decoy = null
+
+func _try_activate_decoy() -> void:
+	if not _has_decoy_module:
+		return
+	if _decoy_timer > 0.0 or is_instance_valid(_active_decoy):
+		return
+	_spawn_decoy()
+	_decoy_timer = _decoy_cooldown
+
+func _spawn_decoy() -> void:
+	var decoy := DecoyShip.new()
+	decoy.setup(GameData.current_ship, GameData.installed_modules, _decoy_duration)
+	decoy.global_position = _clamped_decoy_cursor_position()
+	get_parent().add_child(decoy)
+	_active_decoy = decoy
+
+func _clamped_decoy_cursor_position() -> Vector2:
+	var rect: Rect2 = get_viewport_rect()
+	var margin: float = 76.0
+	var pos: Vector2 = get_global_mouse_position()
+	pos.x = clamp(pos.x, margin, rect.size.x - margin)
+	pos.y = clamp(pos.y, margin, rect.size.y - margin)
+	return pos
+
+func _clear_active_decoy() -> void:
+	if is_instance_valid(_active_decoy):
+		_active_decoy.queue_free()
+	_active_decoy = null
 
 # ── Target marker module ──────────────────────────────────────────
 func _update_target_marker(delta: float) -> void:
@@ -583,3 +640,12 @@ func get_orbital_timer() -> float:
 
 func get_orbital_cooldown() -> float:
 	return _orbital_cooldown
+
+func has_decoy_module() -> bool:
+	return _has_decoy_module
+
+func get_decoy_timer() -> float:
+	return _decoy_timer
+
+func get_decoy_cooldown() -> float:
+	return _decoy_cooldown

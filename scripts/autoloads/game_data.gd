@@ -71,6 +71,12 @@ var MODULE_DATA: Dictionary = {
 		"research_cost": 7, "buy_cost": 350,
 		"effect": {"hp_bonus": 30, "reflect": true},
 	},
+	"decoy_module": {
+		"name": "Decoy modul", "category": "shield",
+		"desc": "Klávesa G vytvoří na 5s holografickou kopii lodi, která láká nepřátelskou palbu.",
+		"research_cost": 6, "buy_cost": 300,
+		"effect": {"ability": "decoy", "cooldown": 20.0, "duration": 5.0},
+	},
 	# ── Engines ─────────────────────────────────────────────────
 	"basic_engine": {
 		"name": "Základní motor", "category": "engine",
@@ -430,6 +436,14 @@ func get_player_stats() -> Dictionary:
 				stats["max_hp"] += eff.get("hp_bonus", 0)
 				if eff.get("reflect", false):
 					stats["reflect_shield"] = true
+				var shield_ability: String = eff.get("ability", "")
+				if not shield_ability.is_empty():
+					stats["specials"].append({
+						"id":       module_id,
+						"ability":  shield_ability,
+						"cooldown": eff.get("cooldown", 10.0),
+						"duration": eff.get("duration", 0.0),
+					})
 			"collector":
 				var c_reach: float = eff.get("pickup_range", 0.0)
 				stats["pickup_range"] = max(stats["pickup_range"], c_reach)
@@ -452,6 +466,7 @@ func get_player_stats() -> Dictionary:
 					"id":       module_id,
 					"ability":  eff.get("ability", ""),
 					"cooldown": eff.get("cooldown", 10.0),
+					"duration": eff.get("duration", 0.0),
 				})
 
 	# Ship passive bonuses

@@ -323,6 +323,7 @@ static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		"target_marker":    _wep_target_marker(canvas, pos)
 		"energy_shield":    _shld_energy(canvas, pos)
 		"reflect_shield":   _shld_reflect(canvas, pos, aim)
+		"decoy_module":     _shld_decoy(canvas, pos)
 		"basic_engine":     _eng_basic(canvas, pos)
 		"advanced_engine":  _eng_advanced(canvas, pos)
 		"ion_engine":       _eng_ion(canvas, pos)
@@ -437,6 +438,18 @@ static func _shld_reflect(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> voi
 	canvas.draw_line(pos + perp * 7.0 - aim * 1.8,
 					 pos - perp * 7.0 - aim * 1.8, col, 3.0)
 	canvas.draw_circle(pos - aim * 1.8, 2.0, Color(col.r, col.g, col.b, 0.32))
+
+static func _shld_decoy(canvas: CanvasItem, pos: Vector2) -> void:
+	var col := Color(0.36, 0.86, 1.00)
+	var t: float = float(Time.get_ticks_msec()) * 0.003
+	canvas.draw_circle(pos, 6.8, Color(0.05, 0.18, 0.26, 0.58))
+	canvas.draw_arc(pos, 6.8, t, t + TAU * 0.82, 24, col, 1.6)
+	canvas.draw_arc(pos, 4.2, -t * 1.3, -t * 1.3 + TAU * 0.55, 18,
+		Color(0.72, 0.96, 1.00, 0.72), 1.2)
+	canvas.draw_line(pos + Vector2(-3.8, -4.6), pos + Vector2(0.0, -7.0), col, 1.2)
+	canvas.draw_line(pos + Vector2(3.8, -4.6), pos + Vector2(0.0, -7.0), col, 1.2)
+	canvas.draw_line(pos + Vector2(-4.6, 4.8), pos + Vector2(4.6, 4.8), col, 1.2)
+	canvas.draw_circle(pos, 1.5, Color(0.85, 0.98, 1.00, 0.88))
 
 # ── Engines ───────────────────────────────────────────────────────────────────
 
