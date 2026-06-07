@@ -23,6 +23,7 @@ var _shuttle_route_active: bool = false
 
 const EXTEND_SPEED:  float = 520.0
 const RETRACT_SPEED: float = 720.0
+const MOVEMENT_SPEED_MULT: float = 0.5
 const GRAB_DIST:     float = 10.0
 const RETRACT_DONE:  float = 3.5
 
@@ -194,9 +195,10 @@ func _magnet_pulse() -> void:
 
 
 func _travel_speed(default_speed: float) -> float:
+	var speed: float = default_speed * MOVEMENT_SPEED_MULT
 	if arm_type == "shuttle":
-		return default_speed * 0.82
-	return default_speed
+		return speed * 0.82
+	return speed
 
 
 func _begin_shuttle_route(from: Vector2, to: Vector2) -> void:

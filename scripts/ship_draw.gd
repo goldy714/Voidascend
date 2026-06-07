@@ -317,10 +317,14 @@ static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		"double_laser":     _wep_double_laser(canvas, pos, aim)
 		"plasma_laser":     _wep_plasma(canvas, pos, aim)
 		"ion_cannon":       _wep_ion(canvas, pos, aim)
-		"rockets":          _wep_rockets(canvas, pos, aim)
+		"rockets":          _wep_rocket_single(canvas, pos, aim)
+		"rocket_launcher_2": _wep_rocket_double(canvas, pos, aim)
+		"explosive_rocket_1": _wep_explosive_rocket_single(canvas, pos, aim)
+		"explosive_rocket_2": _wep_explosive_rocket_double(canvas, pos, aim)
 		"shotgun":          _wep_shotgun(canvas, pos, aim)
 		"minigun":          _wep_minigun(canvas, pos, aim)
 		"target_marker":    _wep_target_marker(canvas, pos)
+		"projectile_duplicator": _wep_projectile_duplicator(canvas, pos, aim)
 		"energy_shield":    _shld_energy(canvas, pos)
 		"reflect_shield":   _shld_reflect(canvas, pos, aim)
 		"decoy_module":     _shld_decoy(canvas, pos)
@@ -330,6 +334,7 @@ static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		"basic_collector":  _col_basic(canvas, pos)
 		"basic_collector_2": _col_basic_dual(canvas, pos)
 		"advanced_collector_1": _col_shuttle(canvas, pos)
+		"advanced_collector_2": _col_shuttle_dual(canvas, pos)
 		"magnet_collector": _col_magnet(canvas, pos)
 		"small_cargo":      _cargo(canvas, pos, 3.5)
 		"medium_cargo":     _cargo(canvas, pos, 5.0)
@@ -369,7 +374,24 @@ static func _wep_ion(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
 	canvas.draw_line(pos - aim * 1.5, pos + aim * 9.5, col, 1.8)
 	canvas.draw_circle(pos + aim * 9.5, 2.0, Color(col.r, col.g, col.b, 0.90))
 
-static func _wep_rockets(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
+static func _wep_rocket_single(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
+	var col := Color(1.00, 0.30, 0.30)
+	var perp := Vector2(-aim.y, aim.x)
+	var pts := PackedVector2Array([
+		pos + perp * 3.8 - aim * 3.0,
+		pos + perp * 3.8 + aim * 5.5,
+		pos + aim * 8.0,
+		pos - perp * 3.8 + aim * 5.5,
+		pos - perp * 3.8 - aim * 3.0,
+	])
+	canvas.draw_polygon(pts, PackedColorArray([Color(col.r * 0.28, 0.06, 0.06, 0.72)]))
+	var pts_closed := PackedVector2Array(pts)
+	pts_closed.append(pts[0])
+	canvas.draw_polyline(pts_closed, col, 1.6)
+	canvas.draw_line(pos - aim * 3.0, pos - aim * 5.5,
+		Color(col.r, col.g, col.b, 0.48), 2.0)
+
+static func _wep_rocket_double(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
 	var col  := Color(1.00, 0.30, 0.30)
 	var perp := Vector2(-aim.y, aim.x)
 	# Rocket tube
@@ -389,6 +411,25 @@ static func _wep_rockets(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void
 		Color(col.r, col.g, col.b, 0.48), 2.0)
 	canvas.draw_line(pos - perp * 2.2 - aim * 3.0, pos - perp * 2.2 - aim * 5.5,
 		Color(col.r, col.g, col.b, 0.48), 2.0)
+
+static func _wep_explosive_rocket_single(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
+	_wep_rocket_single(canvas, pos, aim)
+	_draw_explosive_marker(canvas, pos, aim)
+
+static func _wep_explosive_rocket_double(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
+	_wep_rocket_double(canvas, pos, aim)
+	_draw_explosive_marker(canvas, pos, aim)
+
+static func _draw_explosive_marker(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
+	var center: Vector2 = pos + aim * 1.0
+	var t: float = float(Time.get_ticks_msec()) * 0.005
+	var col := Color(1.00, 0.58, 0.12)
+	canvas.draw_circle(center, 3.6, Color(0.32, 0.10, 0.02, 0.70))
+	for i: int in 6:
+		var angle: float = t + TAU * float(i) / 6.0
+		var ray: Vector2 = Vector2.RIGHT.rotated(angle)
+		canvas.draw_line(center + ray * 2.2, center + ray * 6.2,
+			Color(col.r, col.g, col.b, 0.72), 1.0)
 
 static func _wep_shotgun(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
 	var col  := Color(1.00, 0.60, 0.20)
@@ -424,6 +465,18 @@ static func _wep_target_marker(canvas: CanvasItem, pos: Vector2) -> void:
 	canvas.draw_line(pos + Vector2(0.0, -7.0), pos + Vector2(0.0, -3.2), col, 1.2)
 	canvas.draw_line(pos + Vector2(0.0, 3.2), pos + Vector2(0.0, 7.0), col, 1.2)
 	canvas.draw_circle(pos, 1.4, Color(1.00, 0.92, 0.66, 0.90))
+
+static func _wep_projectile_duplicator(canvas: CanvasItem, pos: Vector2, aim: Vector2) -> void:
+	var col := Color(0.35, 0.95, 1.00)
+	var hot := Color(1.00, 0.86, 0.30)
+	var perp := Vector2(-aim.y, aim.x)
+	canvas.draw_circle(pos, 7.0, Color(0.04, 0.16, 0.22, 0.72))
+	canvas.draw_arc(pos, 7.0, 0.0, TAU, 24, col, 1.4)
+	canvas.draw_line(pos - aim * 6.5, pos + aim * 7.0, hot, 1.8)
+	canvas.draw_line(pos + aim * 1.0, pos + aim * 7.0 + perp * 5.0, col, 1.5)
+	canvas.draw_line(pos + aim * 1.0, pos + aim * 7.0 - perp * 5.0, col, 1.5)
+	canvas.draw_circle(pos + aim * 7.0 + perp * 5.0, 1.4, Color(0.85, 1.00, 1.00, 0.86))
+	canvas.draw_circle(pos + aim * 7.0 - perp * 5.0, 1.4, Color(0.85, 1.00, 1.00, 0.86))
 
 # ── Shields ───────────────────────────────────────────────────────────────────
 
@@ -526,6 +579,12 @@ static func _col_shuttle(canvas: CanvasItem, pos: Vector2) -> void:
 	canvas.draw_circle(pos + Vector2(0.0, -1.2), 2.1, Color(0.86, 0.97, 1.00, 0.82))
 	canvas.draw_line(pos + Vector2(-2.4, 6.0), pos + Vector2(-2.4, 8.2), trim, 1.3)
 	canvas.draw_line(pos + Vector2(2.4, 6.0), pos + Vector2(2.4, 8.2), trim, 1.3)
+
+static func _col_shuttle_dual(canvas: CanvasItem, pos: Vector2) -> void:
+	_col_shuttle(canvas, pos + Vector2(-3.8, 0.0))
+	_col_shuttle(canvas, pos + Vector2(3.8, 0.0))
+	canvas.draw_line(pos + Vector2(-7.0, 7.8), pos + Vector2(7.0, 7.8),
+		Color(0.95, 0.82, 0.28, 0.70), 1.2)
 
 # ── Cargo ─────────────────────────────────────────────────────────────────────
 

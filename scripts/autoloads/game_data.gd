@@ -35,10 +35,28 @@ var MODULE_DATA: Dictionary = {
 		"effect": {"fire_pattern": "ion", "damage": 90, "fire_rate": 1.20},
 	},
 	"rockets": {
-		"name": "Rakety", "category": "weapon",
-		"desc": "Samozaměřovací rakety. Menší rozptyl na cíl.",
+		"name": "Raketomet 1", "category": "weapon",
+		"desc": "Vystřeluje jednu samozaměřovací raketu s menším rozptylem na cíl.",
 		"research_cost": 4, "buy_cost": 180,
 		"effect": {"fire_pattern": "rocket", "damage": 35, "fire_rate": 2.50},
+	},
+	"rocket_launcher_2": {
+		"name": "Raketomet 2", "category": "weapon",
+		"desc": "Vystřeluje dvě samozaměřovací rakety současně.",
+		"research_cost": 6, "buy_cost": 320,
+		"effect": {"fire_pattern": "rocket_double", "damage": 35, "fire_rate": 2.50},
+	},
+	"explosive_rocket_1": {
+		"name": "Výbušná raketa 1", "category": "weapon",
+		"desc": "Jedna samozaměřovací raketa, která se při prvním zásahu roztrhne na šrapnely s malým poškozením.",
+		"research_cost": 7, "buy_cost": 380,
+		"effect": {"fire_pattern": "explosive_rocket", "damage": 35, "fire_rate": 2.70},
+	},
+	"explosive_rocket_2": {
+		"name": "Výbušná raketa 2", "category": "weapon",
+		"desc": "Dvě samozaměřovací rakety, které se při prvním zásahu roztrhnou na šrapnely s malým poškozením.",
+		"research_cost": 10, "buy_cost": 620,
+		"effect": {"fire_pattern": "explosive_rocket_double", "damage": 35, "fire_rate": 2.70},
 	},
 	"shotgun": {
 		"name": "Broková střelba", "category": "weapon",
@@ -58,6 +76,12 @@ var MODULE_DATA: Dictionary = {
 		"research_cost": 4, "buy_cost": 220,
 		"effect": {"target_marker": true, "damage_mult": 1.50, "mark_interval": 2.0},
 	},
+	"projectile_duplicator": {
+		"name": "Duplikátor", "category": "weapon",
+		"desc": "Pasivní modul: každý hráčský projektil, který přes něj přeletí, jednou zdvojí.",
+		"research_cost": 7, "buy_cost": 420,
+		"effect": {"projectile_duplicator": true, "radius": 14.0},
+	},
 	# ── Shields ─────────────────────────────────────────────────
 	"energy_shield": {
 		"name": "Energetický štít", "category": "shield",
@@ -70,12 +94,6 @@ var MODULE_DATA: Dictionary = {
 		"desc": "+30 HP. Odrází projektily zpět na nepřátele.",
 		"research_cost": 7, "buy_cost": 350,
 		"effect": {"hp_bonus": 30, "reflect": true},
-	},
-	"decoy_module": {
-		"name": "Decoy modul", "category": "shield",
-		"desc": "Klávesa G vytvoří na 5s holografickou kopii lodi, která láká nepřátelskou palbu.",
-		"research_cost": 6, "buy_cost": 300,
-		"effect": {"ability": "decoy", "cooldown": 20.0, "duration": 5.0},
 	},
 	# ── Engines ─────────────────────────────────────────────────
 	"basic_engine": {
@@ -114,6 +132,12 @@ var MODULE_DATA: Dictionary = {
 		"desc": "Malá sběrací loď vylétá pro materiál a doručí ho do skladu. Má 2× dosah Základního sběrače 1.",
 		"research_cost": 5, "buy_cost": 260,
 		"effect": {"pickup_range": 360.0, "collector_type": "shuttle", "arms": 1},
+	},
+	"advanced_collector_2": {
+		"name": "Pokročilý sběrač 2", "category": "collector",
+		"desc": "Dvě malé sběrací lodě vylétají pro materiál a doručují ho do skladu. Má stejný dosah jako Pokročilý sběrač 1.",
+		"research_cost": 8, "buy_cost": 420,
+		"effect": {"pickup_range": 360.0, "collector_type": "shuttle", "arms": 2},
 	},
 	"magnet_collector": {
 		"name": "Magnetický sběrač", "category": "collector",
@@ -159,6 +183,12 @@ var MODULE_DATA: Dictionary = {
 		"desc": "Okamžitě opraví 30 HP.",
 		"research_cost": 4, "buy_cost": 200,
 		"effect": {"ability": "repair", "cooldown": 15.0},
+	},
+	"decoy_module": {
+		"name": "Decoy modul", "category": "special",
+		"desc": "Klávesa G vytvoří na 5s holografickou kopii lodi, která láká nepřátelskou palbu.",
+		"research_cost": 6, "buy_cost": 300,
+		"effect": {"ability": "decoy", "cooldown": 20.0, "duration": 5.0},
 	},
 	"fighter_drone": {
 		"name": "Bojová stíhačka", "category": "special",
@@ -414,6 +444,7 @@ func get_player_stats() -> Dictionary:
 		"reflect_shield": false,
 		"weapons":        [],
 		"target_markers": [],
+		"projectile_duplicators": [],
 		"specials":       [],
 		"collectors":     [],
 	}
@@ -426,7 +457,13 @@ func get_player_stats() -> Dictionary:
 		var eff: Dictionary  = data.get("effect", {})
 		match data.get("category", ""):
 			"weapon":
-				if eff.get("target_marker", false):
+				if eff.get("projectile_duplicator", false):
+					stats["projectile_duplicators"].append({
+						"id":     module_id,
+						"slot":   i,
+						"radius": eff.get("radius", 14.0),
+					})
+				elif eff.get("target_marker", false):
 					stats["target_markers"].append({
 						"id":          module_id,
 						"damage_mult": eff.get("damage_mult", 1.50),

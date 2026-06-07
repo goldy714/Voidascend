@@ -31,6 +31,7 @@ var _target_marker_interval: float = 2.0
 var _target_marker_damage_mult: float = 1.5
 var _target_marker_timer: float = 0.0
 var _marked_enemy: Node2D = null
+var _projectile_duplicators: Array[Dictionary] = []
 var _has_decoy_module: bool = false
 var _decoy_cooldown: float = 20.0
 var _decoy_duration: float = 5.0
@@ -128,6 +129,7 @@ func _apply_modules() -> void:
 	var ship: Dictionary = GameData.SHIP_DATA[GameData.current_ship]
 	_ability_cooldown = ship.get("active_cooldown", 2.5)
 	_apply_target_markers()
+	_apply_projectile_duplicators(ship)
 	_apply_special_abilities()
 
 	_spawn_collector_arms(ship)
@@ -150,6 +152,20 @@ func _apply_target_markers() -> void:
 	_target_marker_enabled = true
 	_target_marker_interval = float(marker.get("interval", 2.0))
 	_target_marker_damage_mult = float(marker.get("damage_mult", 1.5))
+
+func _apply_projectile_duplicators(ship: Dictionary) -> void:
+	_projectile_duplicators.clear()
+	var grid: Vector2i = ship.get("grid", Vector2i(3, 3))
+	var origin: Vector2 = ShipDraw.get_grid_origin(grid.x, grid.y)
+	for duplicator: Dictionary in _stats.get("projectile_duplicators", []):
+		var slot: int = int(duplicator.get("slot", 0))
+		var col: int = slot % grid.x
+		var row: int = slot / grid.x
+		_projectile_duplicators.append({
+			"slot":   slot,
+			"local":  origin + Vector2(col * ShipDraw.CELL, row * ShipDraw.CELL),
+			"radius": float(duplicator.get("radius", 14.0)),
+		})
 
 func _apply_special_abilities() -> void:
 	_has_orbital_bombardment = false
@@ -290,9 +306,10 @@ func _weapon_muzzle(w: Dictionary, aim: Vector2) -> Vector2:
 											 float(slot / g.x) * ShipDraw.CELL)
 	var barrel: float
 	match w["pattern"]:
-		"ion":    barrel = 9.5
-		"rocket": barrel = 8.0
-		_:        barrel = 7.5
+		"ion":           barrel = 9.5
+		"rocket", "rocket_double", "explosive_rocket", "explosive_rocket_double":
+			barrel = 8.0
+		_:               barrel = 7.5
 	return slot_pos + aim * barrel
 
 func _fire_weapon(w: Dictionary) -> void:
@@ -317,12 +334,20 @@ func _fire_weapon(w: Dictionary) -> void:
 			_spawn_bullet(muz + perp * randf_range(-3.0, 3.0), w["damage"],
 				Color(1.00, 0.90, 0.30), aim)
 		"rocket":
+			_spawn_bullet(muz, w["damage"], Color(1.00, 0.30, 0.30), aim, 1.8, 420.0, true)
+		"rocket_double":
 			_spawn_bullet(muz + perp *  3.8, w["damage"], Color(1.00, 0.30, 0.30), aim, 1.8, 420.0, true)
 			_spawn_bullet(muz - perp *  3.8, w["damage"], Color(1.00, 0.30, 0.30), aim, 1.8, 420.0, true)
+		"explosive_rocket":
+			_spawn_bullet(muz, w["damage"], Color(1.00, 0.52, 0.12), aim, 1.8, 420.0, true, true)
+		"explosive_rocket_double":
+			_spawn_bullet(muz + perp *  3.8, w["damage"], Color(1.00, 0.52, 0.12), aim, 1.8, 420.0, true, true)
+			_spawn_bullet(muz - perp *  3.8, w["damage"], Color(1.00, 0.52, 0.12), aim, 1.8, 420.0, true, true)
 
 func _spawn_bullet(offset: Vector2, dmg: int, clr: Color,
 		dir: Vector2 = Vector2.UP, sz: float = 1.0, spd: float = 620.0,
-		homing: bool = false) -> void:
+		homing: bool = false, explosive: bool = false,
+		duplicated_slots: Array[int] = []) -> void:
 	var b: Area2D = BULLET_SCENE.instantiate()
 	b.global_position = global_position + offset
 	b.damage       = dmg
@@ -331,7 +356,51 @@ func _spawn_bullet(offset: Vector2, dmg: int, clr: Color,
 	b.size_mult    = sz
 	b.speed        = spd
 	b.homing       = homing
+	b.explosive    = explosive
+	b.source_player = self
+	b.duplicated_slots = duplicated_slots.duplicate()
 	get_parent().add_child(b)
+
+func get_projectile_duplicators() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for duplicator: Dictionary in _projectile_duplicators:
+		var local_value: Variant = duplicator.get("local", Vector2.ZERO)
+		var local_pos: Vector2 = local_value if local_value is Vector2 else Vector2.ZERO
+		result.append({
+			"slot":   int(duplicator.get("slot", -1)),
+			"global": to_global(local_pos),
+			"radius": float(duplicator.get("radius", 14.0)),
+		})
+	return result
+
+func duplicate_projectile_from(source: Node2D, slot: int) -> void:
+	if source == null or not is_instance_valid(source):
+		return
+	var dir_variant: Variant = source.get("dir")
+	var dir_value: Vector2 = dir_variant if dir_variant is Vector2 else Vector2.UP
+	if dir_value == Vector2.ZERO:
+		dir_value = Vector2.UP
+	var perp := Vector2(-dir_value.y, dir_value.x)
+	var slots: Array[int] = []
+	var slot_values: Variant = source.get("duplicated_slots")
+	if slot_values is Array:
+		for value: Variant in slot_values:
+			slots.append(int(value))
+	if slot not in slots:
+		slots.append(slot)
+
+	var copy: Area2D = BULLET_SCENE.instantiate()
+	copy.global_position = source.global_position + perp * 5.0
+	copy.damage = int(source.get("damage"))
+	copy.bullet_color = source.get("bullet_color")
+	copy.size_mult = float(source.get("size_mult"))
+	copy.dir = dir_value
+	copy.speed = float(source.get("speed"))
+	copy.homing = bool(source.get("homing"))
+	copy.explosive = bool(source.get("explosive"))
+	copy.source_player = self
+	copy.duplicated_slots = slots
+	get_parent().add_child(copy)
 
 # ── Ship ability (Space) ──────────────────────────────────────────
 func _handle_ability(delta: float) -> void:
