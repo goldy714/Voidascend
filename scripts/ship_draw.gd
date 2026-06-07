@@ -329,6 +329,7 @@ static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		"ion_engine":       _eng_ion(canvas, pos)
 		"basic_collector":  _col_basic(canvas, pos)
 		"basic_collector_2": _col_basic_dual(canvas, pos)
+		"advanced_collector_1": _col_shuttle(canvas, pos)
 		"magnet_collector": _col_magnet(canvas, pos)
 		"small_cargo":      _cargo(canvas, pos, 3.5)
 		"medium_cargo":     _cargo(canvas, pos, 5.0)
@@ -505,6 +506,26 @@ static func _col_magnet(canvas: CanvasItem, pos: Vector2) -> void:
 	canvas.draw_arc(pos + Vector2(0, -1), 5.0, PI, TAU, 14, Color(0.82, 0.82, 0.92), 2.2)
 	canvas.draw_line(pos + Vector2(-5, 5), pos + Vector2(-5, 7.5), c1, 3.2)
 	canvas.draw_line(pos + Vector2( 5, 5), pos + Vector2( 5, 7.5), c2, 3.2)
+
+static func _col_shuttle(canvas: CanvasItem, pos: Vector2) -> void:
+	var body := Color(0.34, 0.82, 1.00)
+	var trim := Color(0.95, 0.82, 0.28)
+	var dark := Color(0.04, 0.08, 0.15, 0.78)
+	var hull := PackedVector2Array([
+		pos + Vector2(0.0, -7.5),
+		pos + Vector2(-5.4, 2.0),
+		pos + Vector2(0.0, 6.0),
+		pos + Vector2(5.4, 2.0),
+	])
+	canvas.draw_polygon(hull, PackedColorArray([dark]))
+	var closed := PackedVector2Array(hull)
+	closed.append(hull[0])
+	canvas.draw_polyline(closed, body, 1.2)
+	canvas.draw_line(pos + Vector2(-4.8, 1.0), pos + Vector2(-8.0, 5.6), body, 1.4)
+	canvas.draw_line(pos + Vector2(4.8, 1.0), pos + Vector2(8.0, 5.6), body, 1.4)
+	canvas.draw_circle(pos + Vector2(0.0, -1.2), 2.1, Color(0.86, 0.97, 1.00, 0.82))
+	canvas.draw_line(pos + Vector2(-2.4, 6.0), pos + Vector2(-2.4, 8.2), trim, 1.3)
+	canvas.draw_line(pos + Vector2(2.4, 6.0), pos + Vector2(2.4, 8.2), trim, 1.3)
 
 # ── Cargo ─────────────────────────────────────────────────────────────────────
 

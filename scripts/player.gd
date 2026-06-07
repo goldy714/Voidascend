@@ -189,9 +189,9 @@ func _spawn_collector_arms(ship: Dictionary) -> void:
 		var arm_count: int = max(1, int(c.get("arms", 1)))
 		for arm_index: int in arm_count:
 			var arm := CollectorArmScript.new()
-			arm.arm_type       = c["type"]
-			arm.reach          = c["reach"]
-			arm.attract_radius = c["attract_radius"]
+			arm.arm_type       = str(c.get("type", "telescope"))
+			arm.reach          = float(c.get("reach", 90.0))
+			arm.attract_radius = float(c.get("attract_radius", 0.0))
 			arm.player         = self
 			arm.position = slot_pos + _collector_arm_offset(arm_index, arm_count)
 			add_child(arm)

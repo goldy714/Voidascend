@@ -101,19 +101,25 @@ var MODULE_DATA: Dictionary = {
 		"name": "Základní sběrač 1", "category": "collector",
 		"desc": "Jedna mechanická paže. Sbírá materiál v krátkém dosahu.",
 		"research_cost": 0, "buy_cost": 0,
-		"effect": {"pickup_range": 90.0, "arms": 1},
+		"effect": {"pickup_range": 180.0, "arms": 1},
 	},
 	"basic_collector_2": {
 		"name": "Základní sběrač 2", "category": "collector",
 		"desc": "Dvě mechanické paže sbírají materiál současně a dosáhnou o trochu dál.",
 		"research_cost": 3, "buy_cost": 160,
-		"effect": {"pickup_range": 110.0, "arms": 2},
+		"effect": {"pickup_range": 220.0, "arms": 2},
+	},
+	"advanced_collector_1": {
+		"name": "Pokročilý sběrač 1", "category": "collector",
+		"desc": "Malá sběrací loď vylétá pro materiál a doručí ho do skladu. Má 2× dosah Základního sběrače 1.",
+		"research_cost": 5, "buy_cost": 260,
+		"effect": {"pickup_range": 360.0, "collector_type": "shuttle", "arms": 1},
 	},
 	"magnet_collector": {
 		"name": "Magnetický sběrač", "category": "collector",
 		"desc": "2× dosah sběru. Přitáhne vzdálený materiál.",
 		"research_cost": 5, "buy_cost": 250,
-		"effect": {"pickup_range": 200.0},
+		"effect": {"pickup_range": 400.0},
 		"is_test": true,
 	},
 	# ── Cargo ───────────────────────────────────────────────────
@@ -453,7 +459,7 @@ func get_player_stats() -> Dictionary:
 			"collector":
 				var c_reach: float = eff.get("pickup_range", 0.0)
 				stats["pickup_range"] = max(stats["pickup_range"], c_reach)
-				var arm_type: String = "telescope"
+				var arm_type: String = str(eff.get("collector_type", "telescope"))
 				var arm_count: int = max(1, int(eff.get("arms", 1)))
 				var attract_r: float = 0.0
 				if module_id == "magnet_collector":
