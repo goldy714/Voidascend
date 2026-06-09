@@ -16,7 +16,7 @@ func _ready() -> void:
 		spr.texture = load("res://assets/pickups/pickup_crystal.png")
 	else:
 		spr.texture = load("res://assets/pickups/pickup_metal.png")
-	spr.scale = Vector2(0.5, 0.5)
+	spr.scale = Vector2.ONE
 	add_child(spr)
 	# Collision shape (kept so legacy body-contact still works if needed)
 	var shape := CircleShape2D.new()
