@@ -292,11 +292,15 @@ func _clamp_to_battlefield(pos: Vector2, viewport_size: Vector2) -> Vector2:
 
 
 func _clamp_to_visible_engagement_area(pos: Vector2, viewport_size: Vector2) -> Vector2:
-	var max_x: float = max(0.0, viewport_size.x)
-	var max_y: float = max(0.0, viewport_size.y)
+	var max_screen_x: float = max(0.0, viewport_size.x)
+	var max_screen_y: float = max(0.0, viewport_size.y)
+	var min_x: float = min(BODY_RADIUS, max_screen_x * 0.5)
+	var min_y: float = min(BODY_RADIUS, max_screen_y * 0.5)
+	var max_x: float = max(min_x, max_screen_x - min_x)
+	var max_y: float = max(min_y, max_screen_y - min_y)
 	return Vector2(
-		clampf(pos.x, 0.0, max_x),
-		clampf(pos.y, 0.0, max_y)
+		clampf(pos.x, min_x, max_x),
+		clampf(pos.y, min_y, max_y)
 	)
 
 
