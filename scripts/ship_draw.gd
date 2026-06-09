@@ -6,8 +6,11 @@ const SLOT_HALF: float = 8.5
 const MODULE_ART_SIZE: float = 16.0
 const MODULE_ART_DIR: String = "res://assets/modules"
 const SHIP_ART_DIR: String = "res://assets/ships"
+const MODULE_IDLE_FRAME_MS: float = 140.0
+const MODULE_IDLE_MAX_FRAMES: int = 8
 
 static var _module_art_cache: Dictionary = {}
+static var _module_idle_frames_cache: Dictionary = {}
 static var _ship_art_cache: Dictionary = {}
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -249,8 +252,40 @@ static func _get_module_art_at_path(path: String) -> Texture2D:
 	var texture: Texture2D = null
 	if ResourceLoader.exists(path, "Texture2D"):
 		texture = load(path) as Texture2D
+	elif FileAccess.file_exists(path):
+		var image: Image = Image.new()
+		var err: int = image.load(path)
+		if err == OK and not image.is_empty():
+			texture = ImageTexture.create_from_image(image)
 	_module_art_cache[path] = texture
 	return texture
+
+static func _get_module_idle_art(module_id: String) -> Texture2D:
+	var frames: Array = _get_module_idle_frames(module_id)
+	if frames.is_empty():
+		return null
+	var frame_index: int = int(float(Time.get_ticks_msec()) / MODULE_IDLE_FRAME_MS) % frames.size()
+	return frames[frame_index] as Texture2D
+
+static func _get_module_idle_frames(module_id: String) -> Array:
+	if _module_idle_frames_cache.has(module_id):
+		return _module_idle_frames_cache[module_id] as Array
+
+	var frames: Array = []
+	for i: int in MODULE_IDLE_MAX_FRAMES:
+		var texture: Texture2D = null
+		for path: String in [
+			"%s/%s_idle_%02d.png" % [MODULE_ART_DIR, module_id, i],
+			"%s/%s_idle_%d.png" % [MODULE_ART_DIR, module_id, i],
+		]:
+			texture = _get_module_art_at_path(path)
+			if texture != null:
+				break
+		if texture != null:
+			frames.append(texture)
+
+	_module_idle_frames_cache[module_id] = frames
+	return frames
 
 static func _draw_module_art(canvas: CanvasItem, pos: Vector2,
 		texture: Texture2D, rotation: float = 0.0) -> void:
@@ -304,6 +339,11 @@ static func _module_top_rotation(aim: Vector2) -> float:
 
 static func _draw_module(canvas: CanvasItem, pos: Vector2,
 		module_id: String, aim: Vector2) -> void:
+	var idle_texture: Texture2D = _get_module_idle_art(module_id)
+	if idle_texture != null:
+		_draw_module_art(canvas, pos, idle_texture)
+		return
+
 	var texture: Texture2D = _get_module_art(module_id)
 	if texture != null:
 		_draw_module_art(canvas, pos, texture)
