@@ -2,12 +2,16 @@ extends Node2D
 
 const HangarDragPreview = preload("res://scripts/hangar_drag_preview.gd")
 
+const RIGHT_DROP_OVERLAY_FADE_DURATION: float = 0.16
+
 var _inventory_container: VBoxContainer
 var _info_label:          Label
 var _slots_lbl:           Label
 var _ship_view:           Control   # ShipHangarView
 var _right_drop_area:     Control
 var _right_drop_overlay:  Control
+var _right_drop_overlay_tween: Tween
+var _right_drop_overlay_target_visible: bool = false
 
 func _ready() -> void:
 	_build_background()
@@ -158,6 +162,7 @@ func _build_right_drop_overlay(parent: Control) -> void:
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.visible = false
+	overlay.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var style := StyleBoxFlat.new()
@@ -269,10 +274,37 @@ func _right_drop_data(_pos: Vector2, data: Variant) -> void:
 func _show_right_drop_overlay(value: bool) -> void:
 	if not is_instance_valid(_right_drop_overlay):
 		return
-	if _right_drop_overlay.visible == value:
+	if _right_drop_overlay_target_visible == value:
 		return
-	_right_drop_overlay.visible = value
-	set_process(value)
+	_right_drop_overlay_target_visible = value
+	if is_instance_valid(_right_drop_overlay_tween):
+		_right_drop_overlay_tween.kill()
+
+	_right_drop_overlay_tween = create_tween()
+	_right_drop_overlay_tween.set_trans(Tween.TRANS_QUAD)
+	_right_drop_overlay_tween.set_ease(Tween.EASE_OUT)
+
+	if value:
+		_right_drop_overlay.visible = true
+		set_process(true)
+		_right_drop_overlay_tween.tween_property(
+			_right_drop_overlay,
+			"modulate:a",
+			1.0,
+			RIGHT_DROP_OVERLAY_FADE_DURATION
+		)
+	else:
+		set_process(false)
+		_right_drop_overlay_tween.tween_property(
+			_right_drop_overlay,
+			"modulate:a",
+			0.0,
+			RIGHT_DROP_OVERLAY_FADE_DURATION
+		)
+		_right_drop_overlay_tween.tween_callback(func() -> void:
+			if is_instance_valid(_right_drop_overlay) and not _right_drop_overlay_target_visible:
+				_right_drop_overlay.visible = false
+		)
 
 # ── Refresh ───────────────────────────────────────────────────────
 
