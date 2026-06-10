@@ -25,6 +25,7 @@ const SWARM_SPEED_MIN: float = 0.80
 const SWARM_SPEED_MAX: float = 1.08
 const SPRITE_SCALE: float = 0.78
 const BODY_RADIUS: float = 26.0
+const ENTRY_TARGET_REACHED_DISTANCE: float = 3.0
 const MOVE_FRAME_TIME: float = 0.085
 const MOVE_MAX_FRAMES: int = 9
 
@@ -135,15 +136,13 @@ func _physics_process(delta: float) -> void:
 
 	if not _entered_screen:
 		var entry_delta: Vector2 = _entry_target - global_position
-		if entry_delta.length() > 1.0:
+		if entry_delta.length() > ENTRY_TARGET_REACHED_DISTANCE:
 			velocity = entry_delta.normalized() * move_speed
 		else:
 			velocity = Vector2.ZERO
 		move_and_slide()
-		if _is_inside_visible_screen(viewport_size):
-			_entered_screen = true
-			global_position = _clamp_to_visible_engagement_area(global_position, viewport_size)
-			_choose_swarm_target(viewport_size, global_position - _swarm_offset)
+		if _is_entry_finished(viewport_size):
+			_complete_screen_entry(viewport_size)
 	else:
 		_update_swarm_target(viewport_size)
 		var target_value: Variant = _swarm_targets.get(_swarm_id, global_position)
@@ -309,6 +308,17 @@ func _is_inside_visible_screen(viewport_size: Vector2) -> bool:
 		and global_position.x <= viewport_size.x \
 		and global_position.y >= 0.0 \
 		and global_position.y <= viewport_size.y
+
+
+func _is_entry_finished(viewport_size: Vector2) -> bool:
+	return _is_inside_visible_screen(viewport_size) \
+		or global_position.distance_to(_entry_target) <= ENTRY_TARGET_REACHED_DISTANCE
+
+
+func _complete_screen_entry(viewport_size: Vector2) -> void:
+	_entered_screen = true
+	global_position = _clamp_to_visible_engagement_area(global_position, viewport_size)
+	_choose_swarm_target(viewport_size, global_position - _swarm_offset)
 
 
 func _fire() -> void:
