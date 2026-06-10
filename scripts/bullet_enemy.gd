@@ -1,7 +1,7 @@
 extends Area2D
 
-const SPEED := 260.0
-const DAMAGE := 10
+var speed: float = 260.0
+var damage: int = 10
 
 var direction: Vector2 = Vector2.DOWN
 
@@ -22,12 +22,12 @@ func _ready() -> void:
 	add_child(spr)
 
 func _physics_process(delta: float) -> void:
-	position += direction * SPEED * delta
+	position += direction * speed * delta
 	var sz := get_viewport_rect().size
 	if position.y > sz.y + 70.0 or position.x < -70.0 or position.x > sz.x + 70.0:
 		queue_free()
 
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):
-		body.take_damage(DAMAGE)
+		body.take_damage(damage)
 		queue_free()

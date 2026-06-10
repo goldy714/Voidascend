@@ -1,6 +1,7 @@
 extends Area2D
 
 const ShrapnelBurstScript = preload("res://scripts/shrapnel_burst.gd")
+const ProjectileExplosionScript = preload("res://scripts/projectile_explosion.gd")
 
 var damage: int         = 20
 var speed: float        = 620.0
@@ -105,9 +106,27 @@ func _nearest_enemy() -> Node2D:
 func _on_body_entered(body: Node2D) -> void:
 	if body.is_in_group("enemies"):
 		body.take_damage(damage)
+		_spawn_impact_explosion()
 		if explosive:
 			_emit_shrapnel(body)
 		queue_free()
+
+
+func _spawn_impact_explosion() -> void:
+	var parent: Node = get_parent()
+	if parent == null:
+		return
+	var explosion: Node2D = ProjectileExplosionScript.new()
+	explosion.call("setup", global_position, _impact_explosion_size())
+	parent.add_child(explosion)
+
+
+func _impact_explosion_size() -> String:
+	if explosive or size_mult >= 2.6:
+		return "large"
+	if homing or size_mult >= 1.5:
+		return "medium"
+	return "small"
 
 
 func _emit_shrapnel(primary_target: Node2D) -> void:

@@ -16,6 +16,13 @@ const CONTACT_INTERVAL: float = 0.8
 const ENTRY_Y_MIN: float = 160.0
 const ENTRY_Y_MAX: float = 240.0
 const EDGE_PADDING: float = 34.0
+const BATTLEFIELD_TOP_PADDING: float = 90.0
+const BATTLEFIELD_BOTTOM_PADDING: float = 86.0
+const WANDER_TARGET_DISTANCE: float = 26.0
+const WANDER_RETARGET_MIN: float = 1.0
+const WANDER_RETARGET_MAX: float = 2.4
+const WANDER_SPEED_MIN: float = 0.72
+const WANDER_SPEED_MAX: float = 1.12
 
 var _hp: int
 var _shoot_timer: float
@@ -25,7 +32,9 @@ var _target_marked: bool = false
 var _target_damage_mult: float = 1.0
 var _entered_screen: bool = false
 var _entry_y: float = ENTRY_Y_MIN
-var _horizontal_direction: float = 1.0
+var _wander_target: Vector2 = Vector2.ZERO
+var _wander_timer: float = 0.0
+var _wander_speed_mult: float = 1.0
 
 func _ready() -> void:
 	_hp = max_hp
@@ -59,7 +68,6 @@ func _ready() -> void:
 	contact_area.body_exited.connect(_on_contact_body_exited)
 	add_child(contact_area)
 
-	_horizontal_direction = -1.0 if randf() < 0.5 else 1.0
 	_entry_y = randf_range(ENTRY_Y_MIN, ENTRY_Y_MAX)
 	_setup_sprite()
 
@@ -80,16 +88,23 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		if global_position.y >= _entry_y:
 			_entered_screen = true
-			global_position.y = _entry_y
+			global_position = _clamp_to_battlefield(
+				Vector2(global_position.x, _entry_y),
+				viewport_size
+			)
+			_choose_wander_target(viewport_size)
 	else:
-		velocity = Vector2(_horizontal_direction * move_speed, 0.0)
+		_wander_timer -= delta
+		if _should_choose_new_wander_target():
+			_choose_wander_target(viewport_size)
+
+		var target_delta: Vector2 = _wander_target - global_position
+		if target_delta.length() > 1.0:
+			velocity = target_delta.normalized() * move_speed * _wander_speed_mult
+		else:
+			velocity = Vector2.ZERO
 		move_and_slide()
-		if global_position.x <= EDGE_PADDING:
-			global_position.x = EDGE_PADDING
-			_horizontal_direction = 1.0
-		elif global_position.x >= viewport_size.x - EDGE_PADDING:
-			global_position.x = viewport_size.x - EDGE_PADDING
-			_horizontal_direction = -1.0
+		global_position = _clamp_to_battlefield(global_position, viewport_size)
 
 	if _target_marked:
 		queue_redraw()
@@ -107,6 +122,37 @@ func _physics_process(delta: float) -> void:
 			var player := get_tree().get_first_node_in_group("player")
 			if is_instance_valid(player):
 				player.take_damage(CONTACT_DAMAGE)
+
+func _should_choose_new_wander_target() -> bool:
+	return _wander_timer <= 0.0 \
+		or _wander_target == Vector2.ZERO \
+		or global_position.distance_to(_wander_target) <= WANDER_TARGET_DISTANCE
+
+func _choose_wander_target(viewport_size: Vector2) -> void:
+	var bounds: Rect2 = _battlefield_bounds(viewport_size)
+	_wander_target = Vector2(
+		randf_range(bounds.position.x, bounds.end.x),
+		randf_range(bounds.position.y, bounds.end.y)
+	)
+	_wander_timer = randf_range(WANDER_RETARGET_MIN, WANDER_RETARGET_MAX)
+	_wander_speed_mult = randf_range(WANDER_SPEED_MIN, WANDER_SPEED_MAX)
+
+func _battlefield_bounds(viewport_size: Vector2) -> Rect2:
+	var left: float = EDGE_PADDING
+	var right: float = max(left, viewport_size.x - EDGE_PADDING)
+	var top: float = BATTLEFIELD_TOP_PADDING
+	var bottom: float = max(top, viewport_size.y - BATTLEFIELD_BOTTOM_PADDING)
+	return Rect2(
+		Vector2(left, top),
+		Vector2(max(1.0, right - left), max(1.0, bottom - top))
+	)
+
+func _clamp_to_battlefield(pos: Vector2, viewport_size: Vector2) -> Vector2:
+	var bounds: Rect2 = _battlefield_bounds(viewport_size)
+	return Vector2(
+		clampf(pos.x, bounds.position.x, bounds.end.x),
+		clampf(pos.y, bounds.position.y, bounds.end.y)
+	)
 
 func _fire() -> void:
 	var target: Node2D = _choose_attack_target()
